@@ -21,17 +21,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           ISSUE_NUMBER=${{ github.event.issue.number }}
           ISSUE_TITLE=$(echo "${{ github.event.issue.title }}" | tr ' ' '-')
           BRANCH_NAME="feature/issue-${ISSUE_NUMBER}-${ISSUE_TITLE}"
           echo "Creating branch: $BRANCH_NAME"
-          gh pr checkout main
           git checkout -b "$BRANCH_NAME"
           echo "Issue Body:" > ISSUE_BODY.txt
           echo "${{ github.event.issue.body }}" >> ISSUE_BODY.txt
           git add ISSUE_BODY.txt
           git commit -m "chore: init branch for issue #${ISSUE_NUMBER}"
-          git push origin "$BRANCH_NAME"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} "$BRANCH_NAME"
           echo "Branch $BRANCH_NAME created and pushed."
         shell: bash
 
