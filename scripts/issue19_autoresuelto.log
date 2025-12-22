@@ -1,0 +1,4 @@
+Issue #19: Import Media and Organize Bins by Config Rules
+Automate media import and bin organization in Premiere based on config profiles.
+File: premiere/cep-panel/js/main.js
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

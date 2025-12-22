@@ -1,0 +1,4 @@
+Issue #20: Audio Cleanup: Normalization and Denoise
+Add local audio normalization and denoise steps to the pipeline.
+File: src/audio.js
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

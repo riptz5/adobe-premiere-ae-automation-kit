@@ -1,0 +1,4 @@
+Issue #22: Document Essential Graphics Export Process
+Clarify that exporting .mogrt is a UI step and reference Essential Graphics notes.
+File: after-effects/mogrt/ESSENTIAL_GRAPHICS_NOTES.md
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

@@ -1,0 +1,4 @@
+Issue #21: Complete Config UI (Tabs, Toggles, Profiles)
+Design and implement a full configuration UI with tabs, toggles, and profile selection.
+File: notes/config-ui.md
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

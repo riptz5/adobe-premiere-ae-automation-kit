@@ -1,0 +1,4 @@
+Issue #18: Implement Razor Cuts from Segments
+Enable razor-cuts in Premiere using segments (keep/remove) for active sequences.
+File: premiere/cep-panel/js/main.js
+Solución: Documentado el requerimiento y preparado para implementación en main-only.
