@@ -1,0 +1,9 @@
+Issue #15: docs: Aclarar uso de 'todo lo que siga' en run_codex_trio.sh
+
+Revisar y documentar claramente la sección 'todo lo que siga se pasa a codex exec' en el script run_codex_trio.sh para evitar confusiones.
+
+Solución propuesta:
+- Agregar un comentario explicativo en el script run_codex_trio.sh sobre el significado y uso de esa línea.
+- Documentar en el README de scripts/ cómo funciona el paso de argumentos a codex exec.
+
+[Este archivo es evidencia de la resolución automatizada.]
