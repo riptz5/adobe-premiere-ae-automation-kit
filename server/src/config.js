@@ -112,7 +112,8 @@ const ConfigSchema = z.object({
     silenceThresholdDb: z.number().default(-40),
     silenceMinSec: z.number().default(1.0),
     blackThreshold: z.number().default(0.1),
-    blackMinSec: z.number().default(0.2)
+    blackMinSec: z.number().default(0.2),
+    spectral: z.boolean().default(true)
   }).default({}),
   watch: z.object({
     enabled: z.boolean().default(false),

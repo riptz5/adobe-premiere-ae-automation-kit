@@ -7,6 +7,7 @@ import { normalizeAudio } from "./audio.js";
 import { detectScenes, scenesToSegments } from "./scene.js";
 import { suggestBroll } from "./broll.js";
 import { reframeAll } from "./reframe.js";
+import { qaToMarkers } from "./qa.js";
 
 export async function runJob(job, config) {
   const startTs = new Date().toISOString();
@@ -75,6 +76,7 @@ export async function runJob(job, config) {
         const qa = await analyzeMedia(job.input.media.path, config);
         if (qa.ok) {
           job.qa = qa.qa;
+          job.qaMarkers = qaToMarkers(qa.qa);
           addJobEvent(job, "qa", "QA completed");
         } else {
           addJobEvent(job, "qa", `QA failed: ${qa.error}`);

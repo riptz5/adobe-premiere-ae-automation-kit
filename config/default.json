@@ -79,7 +79,8 @@
     "silenceThresholdDb": -40,
     "silenceMinSec": 1.0,
     "blackThreshold": 0.1,
-    "blackMinSec": 0.2
+    "blackMinSec": 0.2,
+    "spectral": true
   },
   "watch": {
     "enabled": false,

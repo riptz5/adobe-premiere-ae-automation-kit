@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid #1c2740;
+  color: #e9f1ff;
+}

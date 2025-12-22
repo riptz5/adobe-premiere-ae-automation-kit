@@ -101,12 +101,24 @@ export async function analyzeMedia(mediaPath, config) {
   const black = parseBlack(result.stderr);
   const loudness = parseLoudness(result.stderr);
 
+  let timeStats = null;
+  let spectralStats = null;
+  if (config.qa?.spectral) {
+    const time = await analyzeTimeStats(mediaPath);
+    timeStats = time.ok ? time.timeStats : { error: time.error };
+
+    const spectral = await analyzeSpectralStats(mediaPath);
+    spectralStats = spectral.ok ? spectral.spectralStats : { error: spectral.error };
+  }
+
   return {
     ok: true,
     qa: {
       silence,
       black,
-      loudness
+      loudness,
+      timeStats,
+      spectralStats
     }
   };
 }
@@ -124,6 +136,12 @@ export function summarizeQa(qa) {
 }
 
 export function qaToCsv(id, qa) {
+  const spectral = qa?.spectralStats?.channels?.find((c) => c.channel === 1) || qa?.spectralStats?.channels?.[0];
+  const s = spectral?.summary || {};
+  const centroidAvg = s.centroid?.avg ?? "";
+  const rolloffAvg = s.rolloff?.avg ?? "";
+  const flatnessAvg = s.flatness?.avg ?? "";
+  const fluxAvg = s.flux?.avg ?? "";
   const rows = [
     ["jobId", "metric", "value"],
     [id, "silence_events", qa?.silence?.length || 0],
@@ -132,7 +150,129 @@ export function qaToCsv(id, qa) {
     [id, "black_total_sec", (qa?.black || []).reduce((s, e) => s + (e.duration || 0), 0)],
     [id, "loudness_I", qa?.loudness?.integrated ?? ""],
     [id, "loudness_LRA", qa?.loudness?.lra ?? ""],
-    [id, "max_volume", qa?.loudness?.maxVolume ?? ""]
+    [id, "max_volume", qa?.loudness?.maxVolume ?? ""],
+    [id, "spectral_centroid_avg", centroidAvg],
+    [id, "spectral_rolloff_avg", rolloffAvg],
+    [id, "spectral_flatness_avg", flatnessAvg],
+    [id, "spectral_flux_avg", fluxAvg]
   ];
   return rows.map((r) => r.join(",")).join("\n");
+}
+
+export function qaToMarkers(qa) {
+  const markers = [];
+  (qa?.silence || []).forEach((s, idx) => {
+    markers.push({
+      timeSec: Number(s.start || 0),
+      name: `Silence #${idx + 1}`,
+      comment: `dur=${s.duration ?? ""}s`
+    });
+  });
+  (qa?.black || []).forEach((b, idx) => {
+    markers.push({
+      timeSec: Number(b.start || 0),
+      name: `Black #${idx + 1}`,
+      comment: `dur=${b.duration ?? ""}s`
+    });
+  });
+  return markers.sort((a, b) => (a.timeSec || 0) - (b.timeSec || 0));
+}
+
+function parseAstats(stderr) {
+  const lines = stderr.split(/\r?\n/);
+  const channels = new Map();
+  const overall = {};
+  const channelRe = /Channel\s+(\d+)\s+(.+?):\s*([-0-9.]+)/i;
+  const overallRe = /Overall\s+(.+?):\s*([-0-9.]+)/i;
+  for (const line of lines) {
+    let m = channelRe.exec(line);
+    if (m) {
+      const ch = Number(m[1]);
+      const key = m[2].trim();
+      const val = Number(m[3]);
+      if (!channels.has(ch)) channels.set(ch, {});
+      channels.get(ch)[key] = val;
+      continue;
+    }
+    m = overallRe.exec(line);
+    if (m) {
+      const key = m[1].trim();
+      const val = Number(m[2]);
+      overall[key] = val;
+    }
+  }
+  return {
+    channels: Array.from(channels.entries()).map(([channel, stats]) => ({ channel, stats })),
+    overall
+  };
+}
+
+async function analyzeTimeStats(mediaPath) {
+  const args = [
+    "-hide_banner",
+    "-i", mediaPath,
+    "-vn",
+    "-sn",
+    "-dn",
+    "-af", "astats=metadata=1:reset=1:measure_overall=1",
+    "-f", "null", "-"
+  ];
+  const res = await runFfmpeg(args, 3 * 60 * 1000);
+  if (!res.ok) return res;
+  const timeStats = parseAstats(res.stderr);
+  return { ok: true, timeStats };
+}
+
+function parseAspectralstats(stderr) {
+  const re = /lavfi\.aspectralstats\.(\d+)\.([a-zA-Z_]+)=([-0-9.eE]+)/g;
+  const valuesByChannel = new Map();
+
+  let match;
+  while ((match = re.exec(stderr))) {
+    const channel = Number(match[1]);
+    const key = match[2];
+    const value = Number(match[3]);
+    if (!Number.isFinite(channel) || !Number.isFinite(value)) continue;
+
+    if (!valuesByChannel.has(channel)) valuesByChannel.set(channel, new Map());
+    const perMetric = valuesByChannel.get(channel);
+    if (!perMetric.has(key)) perMetric.set(key, []);
+    perMetric.get(key).push(value);
+  }
+
+  const channels = [];
+  for (const [channel, perMetric] of valuesByChannel.entries()) {
+    const summary = {};
+    for (const [key, arr] of perMetric.entries()) {
+      if (!arr.length) continue;
+      let min = arr[0];
+      let max = arr[0];
+      let sum = 0;
+      for (const v of arr) {
+        sum += v;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      summary[key] = { avg: sum / arr.length, min, max };
+    }
+    channels.push({ channel, summary });
+  }
+  channels.sort((a, b) => a.channel - b.channel);
+  return { channels };
+}
+
+async function analyzeSpectralStats(mediaPath) {
+  const args = [
+    "-hide_banner",
+    "-i", mediaPath,
+    "-vn",
+    "-sn",
+    "-dn",
+    "-af", "aspectralstats,ametadata=mode=print",
+    "-f", "null", "-"
+  ];
+  const res = await runFfmpeg(args, 3 * 60 * 1000);
+  if (!res.ok) return res;
+  const spectralStats = parseAspectralstats(res.stderr);
+  return { ok: true, spectralStats };
 }

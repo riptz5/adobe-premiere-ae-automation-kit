@@ -28,6 +28,7 @@ export async function writeJobOutputs(job, config) {
   let brollPath = null;
   let reframePath = null;
   let sceneSegmentsPath = null;
+  let qaMarkersPath = null;
 
   if (output.writeResult) {
     const filePath = path.join(dir, `${baseName}.result.json`);
@@ -68,7 +69,7 @@ export async function writeJobOutputs(job, config) {
 
   if (output.writeQa && job.qa) {
     const filePath = path.join(dir, `${baseName}.qa.json`);
-    await fs.writeFile(filePath, JSON.stringify(job.qa, null, 2), "utf8");
+    await fs.writeFile(filePath, JSON.stringify({ qa: job.qa, markers: job.qaMarkers || [] }, null, 2), "utf8");
     qaPath = filePath;
   }
 
@@ -102,6 +103,7 @@ export async function writeJobOutputs(job, config) {
     scenesPath,
     sceneSegmentsPath,
     brollPath,
-    reframePath
+    reframePath,
+    qaMarkersPath
   };
 }

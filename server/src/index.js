@@ -207,15 +207,26 @@ app.post("/v1/jobs", async (req, res) => {
     const jobConfig = await loadConfig({ profileOverride: profile });
     await initJobStore(jobConfig);
 
+    const runMode = jobConfig.runMode || "auto";
+    const autoRunDefault = runMode === "auto" ? jobConfig.autoRun : false;
+    const autoRun = parsed.data.autoRun !== undefined ? parsed.data.autoRun : autoRunDefault;
+
     const job = newJob({
       transcript: parsed.data.transcript || "",
       media: parsed.data.mediaPath ? { path: parsed.data.mediaPath, kind: "media" } : null,
       profile,
       options: parsed.data.options
     });
+    job.runMode = runMode;
     await writeJob(job, jobConfig);
 
-    const autoRun = parsed.data.autoRun ?? jobConfig.autoRun;
+    if (runMode === "dry-run") {
+      job.status = "ready";
+      job.note = "runMode=dry-run (no se ejecutó pipeline)";
+      await writeJob(job, jobConfig);
+      return res.json({ ok: true, job });
+    }
+
     if (autoRun) {
       const completed = await runJob(job, jobConfig);
       return res.json({ ok: true, job: completed });
@@ -340,9 +351,28 @@ app.get("/v1/jobs/:id/qa", async (req, res) => {
     if (job.qa) return res.json({ ok: true, qa: job.qa });
     if (job.outputs?.qaPath) {
       const raw = await fs.readFile(job.outputs.qaPath, "utf8");
-      return res.json({ ok: true, qa: JSON.parse(raw) });
+      const parsed = JSON.parse(raw);
+      return res.json({ ok: true, qa: parsed.qa || parsed });
     }
     return res.status(404).json({ ok: false, error: "QA not found" });
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return res.status(404).json({ ok: false, error: "Job not found" });
+    }
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/v1/jobs/:id/qa-markers", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    if (job.qaMarkers) return res.json({ ok: true, markers: job.qaMarkers });
+    if (job.outputs?.qaPath) {
+      const raw = await fs.readFile(job.outputs.qaPath, "utf8");
+      const parsed = JSON.parse(raw);
+      return res.json({ ok: true, markers: parsed.markers || [] });
+    }
+    return res.status(404).json({ ok: false, error: "QA markers not found" });
   } catch (err) {
     if (err.code === "ENOENT") {
       return res.status(404).json({ ok: false, error: "Job not found" });

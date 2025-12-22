@@ -73,6 +73,7 @@ const sections = {
   advanced: [
     { key: "qa.silenceThresholdDb", label: "Silence dB", type: "number" },
     { key: "qa.blackThreshold", label: "Black threshold", type: "number" },
+    { key: "qa.spectral", label: "Spectral stats", type: "checkbox" },
     { key: "audio.denoise", label: "Denoise", type: "checkbox" },
     { key: "paths.dataDir", label: "Data dir", type: "text" }
   ]
@@ -158,111 +159,37 @@ function renderJob(job) {
   title.innerHTML = `<strong>${job.status}</strong> ${job.id}`;
   const meta = document.createElement("div");
   meta.className = "muted";
-  meta.textContent = `${job.profile || "default"} | ${job.createdAt || ""}`;
+  meta.textContent = `${job.profile || "default"} | ${job.createdAt || ""} | runMode=${job.runMode || "auto"}`;
   const actions = document.createElement("div");
-  actions.className = "row";
+  actions.className = "actions";
 
-  const runBtn = document.createElement("button");
-  runBtn.className = "secondary";
-  runBtn.textContent = "Run";
-  runBtn.onclick = async () => {
+  const mkBtn = (label, handler, secondary = true) => {
+    const b = document.createElement("button");
+    if (secondary) b.className = "secondary";
+    b.textContent = label;
+    b.onclick = handler;
+    return b;
+  };
+
+  actions.appendChild(mkBtn("Run", async () => {
     const data = await postJSON(`/v1/jobs/${job.id}/run`, {});
     setLog(document.getElementById("jobOutput"), data);
     await loadJobs();
-  };
-
-  const resultBtn = document.createElement("button");
-  resultBtn.className = "secondary";
-  resultBtn.textContent = "Result";
-  resultBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/result`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const markersBtn = document.createElement("button");
-  markersBtn.className = "secondary";
-  markersBtn.textContent = "Markers";
-  markersBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/markers`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const segmentsBtn = document.createElement("button");
-  segmentsBtn.className = "secondary";
-  segmentsBtn.textContent = "Segments";
-  segmentsBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/segments`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const chaptersBtn = document.createElement("button");
-  chaptersBtn.className = "secondary";
-  chaptersBtn.textContent = "Chapters";
-  chaptersBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/chapters`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const summaryBtn = document.createElement("button");
-  summaryBtn.className = "secondary";
-  summaryBtn.textContent = "Summary";
-  summaryBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/summary`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const qaBtn = document.createElement("button");
-  qaBtn.className = "secondary";
-  qaBtn.textContent = "QA";
-  qaBtn.onclick = async () => {
+  }));
+  actions.appendChild(mkBtn("Result", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/result`))));
+  actions.appendChild(mkBtn("Markers", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/markers`)))));
+  actions.appendChild(mkBtn("Segments", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/segments`)))));
+  actions.appendChild(mkBtn("Chapters", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/chapters`)))));
+  actions.appendChild(mkBtn("Summary", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/summary`)))));
+  actions.appendChild(mkBtn("QA", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/qa`)))));
+  actions.appendChild(mkBtn("QA CSV", async () => {
     const data = await getJSON(`/v1/jobs/${job.id}/qa`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const qaCsvBtn = document.createElement("button");
-  qaCsvBtn.className = "secondary";
-  qaCsvBtn.textContent = "QA CSV";
-  qaCsvBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/qa`);
-    const csv = qaToCsv(job.id, data.qa || {});
-    setLog(document.getElementById("jobOutput"), csv);
-  };
-
-  const scenesBtn = document.createElement("button");
-  scenesBtn.className = "secondary";
-  scenesBtn.textContent = "Scenes";
-  scenesBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/scenes`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const brollBtn = document.createElement("button");
-  brollBtn.className = "secondary";
-  brollBtn.textContent = "B-roll";
-  brollBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/broll`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  const reframeBtn = document.createElement("button");
-  reframeBtn.className = "secondary";
-  reframeBtn.textContent = "Reframe";
-  reframeBtn.onclick = async () => {
-    const data = await getJSON(`/v1/jobs/${job.id}/reframe`);
-    setLog(document.getElementById("jobOutput"), data);
-  };
-
-  actions.appendChild(runBtn);
-  actions.appendChild(resultBtn);
-  actions.appendChild(markersBtn);
-  actions.appendChild(segmentsBtn);
-  actions.appendChild(chaptersBtn);
-  actions.appendChild(summaryBtn);
-  actions.appendChild(qaBtn);
-  actions.appendChild(qaCsvBtn);
-  actions.appendChild(scenesBtn);
-  actions.appendChild(brollBtn);
-  actions.appendChild(reframeBtn);
+    setLog(document.getElementById("jobOutput"), qaToCsv(job.id, data.qa || {}));
+  }));
+  actions.appendChild(mkBtn("QA Markers", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/qa-markers`)))));
+  actions.appendChild(mkBtn("Scenes", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/scenes`)))));
+  actions.appendChild(mkBtn("B-roll", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/broll`)))));
+  actions.appendChild(mkBtn("Reframe", async () => setLog(document.getElementById("jobOutput"), await getJSON(`/v1/jobs/${job.id}/reframe`)))));
 
   div.appendChild(title);
   div.appendChild(meta);
@@ -287,6 +214,12 @@ async function loadJobs() {
 async function loadConfig() {
   const data = await getJSON("/v1/config");
   setLog(document.getElementById("configOutput"), data.config);
+  if (data.config?.runMode) {
+    const el = document.getElementById("runModeHint");
+    if (el) el.textContent = `runMode: ${data.config.runMode}`;
+    const ar = document.getElementById("autoRunHint");
+    if (ar) ar.textContent = data.config.autoRun ? "autoRun: on" : "autoRun: off";
+  }
 }
 
 function buildField(field, config) {
@@ -441,48 +374,6 @@ async function deleteProfile() {
   await loadConfigUi();
 }
 
-document.getElementById("analyzeBtn").onclick = () => analyze().catch(err => setLog(document.getElementById("analyzeOutput"), err.message));
-document.getElementById("clearAnalyzeBtn").onclick = () => { document.getElementById("transcriptInput").value = ""; };
-document.getElementById("jobCreateBtn").onclick = () => createJob(true).catch(err => setLog(document.getElementById("jobOutput"), err.message));
-document.getElementById("jobCreateOnlyBtn").onclick = () => createJob(false).catch(err => setLog(document.getElementById("jobOutput"), err.message));
-document.getElementById("refreshJobsBtn").onclick = () => loadJobs().catch(err => setLog(document.getElementById("jobOutput"), err.message));
-document.getElementById("loadConfigBtn").onclick = () => loadConfig().catch(err => setLog(document.getElementById("configOutput"), err.message));
-document.getElementById("qaBtn").onclick = () => {
-  const mediaPath = document.getElementById("mediaToolsPath").value.trim();
-  if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
-  postJSON("/v1/qa/analyze", { path: mediaPath })
-    .then(data => setLog(document.getElementById("mediaOutput"), data))
-    .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
-};
-document.getElementById("normalizeBtn").onclick = () => {
-  const mediaPath = document.getElementById("mediaToolsPath").value.trim();
-  if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
-  postJSON("/v1/audio/normalize", { path: mediaPath })
-    .then(data => setLog(document.getElementById("mediaOutput"), data))
-    .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
-};
-document.getElementById("sceneBtn").onclick = () => {
-  const mediaPath = document.getElementById("mediaToolsPath").value.trim();
-  if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
-  postJSON("/v1/scene/detect", { path: mediaPath })
-    .then(data => setLog(document.getElementById("mediaOutput"), data))
-    .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
-};
-document.getElementById("reframeBtn").onclick = () => {
-  const mediaPath = document.getElementById("mediaToolsPath").value.trim();
-  if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
-  postJSON("/v1/reframe", { path: mediaPath, target: "9:16" })
-    .then(data => setLog(document.getElementById("mediaOutput"), data))
-    .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
-};
-document.getElementById("brollBtn").onclick = () => {
-  const text = document.getElementById("brollText").value.trim();
-  if (!text) return setLog(document.getElementById("mediaOutput"), "Set b-roll text first.");
-  postJSON("/v1/broll/suggest", { text })
-    .then(data => setLog(document.getElementById("mediaOutput"), data))
-    .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
-};
-
 async function loadLocalConfig() {
   try {
     const data = await getJSON("/v1/config/local");
@@ -493,31 +384,82 @@ async function loadLocalConfig() {
   }
 }
 
-document.getElementById("loadLocalConfig").onclick = loadLocalConfig;
-document.getElementById("saveLocalConfig").onclick = async () => {
-  try {
-    const payload = JSON.parse(document.getElementById("configEditor").value || "{}");
-    const data = await postJSON("/v1/config/local", payload);
-    document.getElementById("configEditorMessage").textContent = "Guardado.";
-    loadConfig();
-    loadProfiles();
-  } catch (err) {
-    document.getElementById("configEditorMessage").textContent = err.message;
-  }
-};
-document.getElementById("loadConfigUiBtn").onclick = () => loadConfigUi().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("saveConfigUiBtn").onclick = () => saveConfigUi().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("loadProfileBtn").onclick = () => loadProfileConfig().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("saveProfileBtn").onclick = () => saveProfileConfig().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("newProfileBtn").onclick = () => newProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("cloneProfileBtn").onclick = () => cloneProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
-document.getElementById("deleteProfileBtn").onclick = () => deleteProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+function wireActions() {
+  document.getElementById("analyzeBtn").onclick = () => analyze().catch(err => setLog(document.getElementById("analyzeOutput"), err.message));
+  document.getElementById("clearAnalyzeBtn").onclick = () => { document.getElementById("transcriptInput").value = ""; };
+  document.getElementById("jobCreateBtn").onclick = () => createJob(true).catch(err => setLog(document.getElementById("jobOutput"), err.message));
+  document.getElementById("jobCreateOnlyBtn").onclick = () => createJob(false).catch(err => setLog(document.getElementById("jobOutput"), err.message));
+  document.getElementById("refreshJobsBtn").onclick = () => loadJobs().catch(err => setLog(document.getElementById("jobOutput"), err.message));
+  document.getElementById("loadConfigBtn").onclick = () => loadConfig().catch(err => setLog(document.getElementById("configOutput"), err.message));
 
-loadProfiles()
-  .then(loadJobs)
-  .then(loadConfig)
-  .catch(err => {
-    setLog(document.getElementById("analyzeOutput"), err.message);
-  });
-loadLocalConfig();
-loadConfigUi().catch(() => {});
+  document.getElementById("qaBtn").onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    postJSON("/v1/qa/analyze", { path: mediaPath })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+  document.getElementById("normalizeBtn").onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    postJSON("/v1/audio/normalize", { path: mediaPath })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+  document.getElementById("sceneBtn").onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    postJSON("/v1/scene/detect", { path: mediaPath })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+  document.getElementById("reframeBtn").onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    postJSON("/v1/reframe", { path: mediaPath, target: "9:16" })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+  document.getElementById("brollBtn").onclick = () => {
+    const text = document.getElementById("brollText").value.trim();
+    if (!text) return setLog(document.getElementById("mediaOutput"), "Set b-roll text first.");
+    postJSON("/v1/broll/suggest", { text })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+
+  document.getElementById("loadLocalConfig").onclick = loadLocalConfig;
+  document.getElementById("saveLocalConfig").onclick = async () => {
+    try {
+      const payload = JSON.parse(document.getElementById("configEditor").value || "{}");
+      const data = await postJSON("/v1/config/local", payload);
+      document.getElementById("configEditorMessage").textContent = "Guardado.";
+      loadConfig();
+      loadProfiles();
+    } catch (err) {
+      document.getElementById("configEditorMessage").textContent = err.message;
+    }
+  };
+  document.getElementById("loadConfigUiBtn").onclick = () => loadConfigUi().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("saveConfigUiBtn").onclick = () => saveConfigUi().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("loadProfileBtn").onclick = () => loadProfileConfig().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("saveProfileBtn").onclick = () => saveProfileConfig().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("newProfileBtn").onclick = () => newProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("cloneProfileBtn").onclick = () => cloneProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+  document.getElementById("deleteProfileBtn").onclick = () => deleteProfile().catch(err => document.getElementById("configEditorMessage").textContent = err.message);
+}
+
+async function init() {
+  wireActions();
+  await loadProfiles();
+  await loadJobs();
+  await loadConfig();
+  await loadConfigUi().catch(() => {});
+  await loadLocalConfig();
+  document.getElementById("statusPill").textContent = "status: ready";
+}
+
+init().catch(err => {
+  const pill = document.getElementById("statusPill");
+  if (pill) pill.textContent = `status: error ${err.message}`;
+});
