@@ -1,0 +1,4 @@
+Issue #25: Implement Final Reviewer Pass
+Add option to run a post-implementation reviewer step.
+File: scripts/run_codex_trio.sh
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

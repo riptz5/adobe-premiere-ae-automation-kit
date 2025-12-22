@@ -1,0 +1,4 @@
+Issue #24: Support Model Selection in CLI
+Allow passing model name to codex exec via CLI.
+File: src/cli.js
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

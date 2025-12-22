@@ -1,0 +1,4 @@
+Issue #27: Prefer Minimal, Auditable Changes
+Encourage minimal changes and avoid new dependencies unless necessary.
+File: CONTRIBUTING.md
+Solución: Documentado el requerimiento y preparado para implementación en main-only.

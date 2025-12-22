@@ -1,0 +1,4 @@
+Issue #26: Enforce No Secrets in Commits or Logs
+Ensure secrets (tokens, keys, .env) are never committed or printed in logs.
+File: CONTRIBUTING.md
+Solución: Documentado el requerimiento y preparado para implementación en main-only.
