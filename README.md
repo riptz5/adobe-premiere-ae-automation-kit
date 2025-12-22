@@ -178,6 +178,14 @@ Si necesitas cumplir “nunca codifiques solo”, lanza 3 agentes en paralelo (p
 - `--oss` usa proveedor open source configurado en Codex (`ollama`/`lmstudio`); quita el flag si prefieres tu proveedor actual.
 - Por defecto corre en `read-only`; ajusta con `--planner-sandbox/--impl-sandbox/--review-sandbox` si quieres permitir escritura.
 
+Si quieres un flujo con handoff (Planner + Reviewer en paralelo → Implementer consume ambos):
+
+```bash
+./scripts/nowiswhen.sh --task "Revisa el repo, sugiere mejoras y aplica cambios mínimos" --implement --final-review --oss --local-provider ollama
+```
+
+Regla completa y guía: `AGENTS.md`.
+
 ## Contribuir
 Ver `CONTRIBUTING.md`.
 

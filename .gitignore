@@ -1,10 +1,15 @@
 config/local.json
+**/.env
+**/.env.*
 server/data/
 server/node_modules/
 server/vendor/
 server/models/
 broll/
 watch/
+.codex-agents/
+notes/multi-agent/
+.agents/
 .DS_Store
 .codex-agents/
 notes/refresh_report.md

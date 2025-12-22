@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node src/index.js",
     "start": "node src/index.js",
-    "cli": "node src/cli.js"
+    "cli": "node src/cli.js",
+    "test": "node --check src/index.js && node --check src/pipeline.js"
   },
   "dependencies": {
     "express": "^4.19.2",
