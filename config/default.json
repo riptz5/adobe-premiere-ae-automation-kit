@@ -1,0 +1,133 @@
+{
+  "profile": "shorts",
+  "autoRun": true,
+  "runMode": "auto",
+  "logLevel": "info",
+  "server": {
+    "port": 8787
+  },
+  "paths": {
+    "dataDir": "server/data",
+    "jobsDir": "server/data/jobs",
+    "logsDir": "server/data/logs",
+    "resultsDir": "server/data/results"
+  },
+  "features": {
+    "useLLM": true,
+    "useFallbacks": true,
+    "useScenes": true,
+    "useBroll": true,
+    "useReframe": false
+  },
+  "analyze": {
+    "chapterTargetSec": 120,
+    "highlightMax": 5
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "ollama",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "ollama",
+    "model": "llama3:8b",
+    "temperature": 0.3,
+    "maxTranscriptChars": 25000,
+    "timeoutMs": 60000
+  },
+  "output": {
+    "writeResult": true,
+    "writeMarkers": true,
+    "writeSegments": true,
+    "writeChapters": true,
+    "writeSummary": true,
+    "writeTranscript": true,
+    "writeQa": true,
+    "writeScenes": true,
+    "writeBroll": true,
+    "writeReframe": true,
+    "useSourceName": true,
+    "resultDir": "server/data/results"
+  },
+  "broll": {
+    "libraryDir": "broll",
+    "maxResults": 8,
+    "minScore": 1
+  },
+  "scene": {
+    "threshold": 0.3
+  },
+  "reframe": {
+    "enabled": false,
+    "targets": [
+      "9:16"
+    ],
+    "outputDir": "server/data/reframe"
+  },
+  "audio": {
+    "normalize": true,
+    "targetI": -16,
+    "truePeak": -1.5,
+    "lra": 11,
+    "denoise": false,
+    "denoiseLevel": 0.9,
+    "highpassHz": 0,
+    "lowpassHz": 0,
+    "voicePresenceDb": 0,
+    "outputDir": "server/data/normalized"
+  },
+  "qa": {
+    "enabled": true,
+    "silenceThresholdDb": -40,
+    "silenceMinSec": 1.0,
+    "blackThreshold": 0.1,
+    "blackMinSec": 0.2
+  },
+  "watch": {
+    "enabled": false,
+    "folders": [
+      "watch"
+    ],
+    "extensions": [
+      ".vtt",
+      ".srt",
+      ".txt"
+    ],
+    "mediaExtensions": [
+      ".mp4",
+      ".mov",
+      ".mxf",
+      ".wav",
+      ".mp3",
+      ".aiff"
+    ],
+    "debounceMs": 1500
+  },
+  "stt": {
+    "engine": "whisper.cpp",
+    "modelSize": "small",
+    "language": "auto",
+    "vad": true,
+    "format": "vtt",
+    "command": "whisper.cpp",
+    "modelPath": ""
+  },
+  "integrations": {
+    "frameio": {
+      "enabled": false,
+      "token": "",
+      "projectId": "",
+      "folderId": ""
+    },
+    "adobeStock": {
+      "enabled": false,
+      "apiKey": ""
+    },
+    "apiMesh": {
+      "enabled": false,
+      "baseUrl": ""
+    }
+  },
+  "render": {
+    "presetPath": "",
+    "outputDir": ""
+  }
+}

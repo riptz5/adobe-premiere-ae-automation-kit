@@ -1,0 +1,22 @@
+{
+  "markers": [
+    {
+      "timeSec": 0,
+      "name": "Intro",
+      "comment": "CHAPTER: Intro",
+      "type": "chapter"
+    },
+    {
+      "timeSec": 3,
+      "name": "Capítulos & highlights",
+      "comment": "CHAPTER: Capítulos & highlights",
+      "type": "chapter"
+    },
+    {
+      "timeSec": 7,
+      "name": "Highlight 1",
+      "comment": "HIGHLIGHT",
+      "type": "highlight"
+    }
+  ]
+}

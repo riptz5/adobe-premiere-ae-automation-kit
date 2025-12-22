@@ -1,0 +1,6 @@
+# Example prompts for scripts/run_multi_agents.sh
+# Lines starting with # are ignored.
+
+Planner: Build a step-by-step plan to add an auto QA export (CSV + JSON) to the dashboard using existing server endpoints.
+Implementer: Implement the plan: add endpoints/UI wiring for QA export, keep changes minimal and document any config flags.
+Reviewer: Review the QA export implementation for regressions and propose quick fixes or tests if needed.

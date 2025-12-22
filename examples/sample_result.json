@@ -1,0 +1,19 @@
+{
+  "chapters": [
+    { "start": 0, "end": 15, "title": "Chapter 1" }
+  ],
+  "segments": [
+    { "start": 2.5, "end": 11.5, "label": "Highlight 1", "action": "keep" }
+  ],
+  "highlights": [
+    { "start": 3, "end": 7, "label": "Highlight 1", "score": 8 },
+    { "start": 7, "end": 11, "label": "Highlight 2", "score": 7 }
+  ],
+  "markers": [
+    { "timeSec": 0, "name": "Chapter 1", "comment": "CHAPTER: Chapter 1", "type": "chapter" },
+    { "timeSec": 3, "name": "Highlight 1", "comment": "HIGHLIGHT", "type": "highlight" },
+    { "timeSec": 7, "name": "Highlight 2", "comment": "HIGHLIGHT", "type": "highlight" }
+  ],
+  "summary": "Resumen corto de la idea principal y highlights.",
+  "source": "Heuristic"
+}
