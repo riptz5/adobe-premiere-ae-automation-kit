@@ -1,0 +1,41 @@
+name: AI Agent Dev Orchestrator
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  feature_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up GitHub CLI
+        uses: actions/setup-gh@v3
+
+      - name: Read Issue and Create Feature Branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          ISSUE_TITLE=$(echo "${{ github.event.issue.title }}" | tr ' ' '-')
+          BRANCH_NAME="feature/issue-${ISSUE_NUMBER}-${ISSUE_TITLE}"
+          echo "Creating branch: $BRANCH_NAME"
+          gh pr checkout main
+          git checkout -b "$BRANCH_NAME"
+          echo "Issue Body:" > ISSUE_BODY.txt
+          echo "${{ github.event.issue.body }}" >> ISSUE_BODY.txt
+          git add ISSUE_BODY.txt
+          git commit -m "chore: init branch for issue #${ISSUE_NUMBER}"
+          git push origin "$BRANCH_NAME"
+          echo "Branch $BRANCH_NAME created and pushed."
+        shell: bash
+
+      - name: Comment on Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "🚀 Feature branch [$BRANCH_NAME] created for this issue."
+        shell: bash

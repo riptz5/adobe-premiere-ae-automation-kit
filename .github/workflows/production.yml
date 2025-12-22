@@ -1,0 +1,53 @@
+name: Production CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+        shell: bash
+
+      - name: Lint
+        run: |
+          npm run lint || echo "Lint failed" && exit 1
+        shell: bash
+
+      - name: Test
+        run: |
+          npm test || echo "Tests failed" && exit 1
+        shell: bash
+
+      - name: Build
+        run: |
+          npm run build || echo "Build failed" && exit 1
+        shell: bash
+
+      - name: Deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deploying..."
+          # Add your deploy command here, e.g., npm run deploy
+        shell: bash
+
+      - name: Error Handling and Rollback
+        if: failure()
+        run: |
+          echo "Error detected. Attempting rollback..."
+          # Add rollback logic here
+        shell: bash
