@@ -1,3 +1,4 @@
+
 config/local.json
 **/.env
 **/.env.*
@@ -18,3 +19,31 @@ notes/refresh_report.md
 .env.*
 !.env.example
 !**/.env.example
+# Ignorar node_modules y binarios grandes
+node_modules/
+web/node_modules/
+*.tmp
+*.bak
+*.swp
+*.sqlite
+*.db
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.tar
+*.gz
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.node
+# Ignorar archivos de salida de build
+web/.next/
+web/dist/
+web/build/
+# Ignorar archivos de configuración locales
+local.json
