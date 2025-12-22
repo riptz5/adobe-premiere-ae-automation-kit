@@ -25,10 +25,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           ISSUE_NUMBER=${{ github.event.issue.number }}
           # Sanitizar el título para nombre de rama válido
-          ISSUE_TITLE_RAW="${{ github.event.issue.title }}"
-          # Reemplazar espacios, dos puntos, tildes y otros caracteres no válidos
-          ISSUE_TITLE=$(echo "$ISSUE_TITLE_RAW" | iconv -f utf8 -t ascii//TRANSLIT | sed 's/[^A-Za-z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-          BRANCH_NAME="feature/issue-${ISSUE_NUMBER}-${ISSUE_TITLE}"
+          BRANCH_NAME="feature/autonomous"
           echo "Creating branch: $BRANCH_NAME"
           git checkout -b "$BRANCH_NAME"
           echo "Issue Body:" > ISSUE_BODY.txt
