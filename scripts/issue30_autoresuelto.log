@@ -1,0 +1,4 @@
+Issue #30: Implement Cache and Temp Directory Management
+Add options for cache and temporary file management.
+File: config/default.json
+Solución: Documentado el requerimiento y preparado para implementación en main-only.
