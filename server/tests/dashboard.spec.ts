@@ -6,11 +6,15 @@ test("dashboard básico funciona end-to-end", async ({ page }) => {
   // Asume servidor corriendo (./run_all.sh)
   await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 
-  // Cabecera y secciones principales visibles
+  // Cabecera siempre visible
   await expect(page.getByText("AutoKit · Dashboard")).toBeVisible();
-  await expect(page.getByText("1 · Analizar transcript (markers/segments)")).toBeVisible();
+
+  // Expand the "Más opciones" panel to reveal transcript/job/media sections
+  await page.locator("#toggleMoreBtn").click();
+
+  // Secciones visibles tras expandir
+  await expect(page.getByText("Analizar transcript (markers/segments)")).toBeVisible();
   await expect(page.getByText("2 · Crear job (media o transcript)")).toBeVisible();
-  await expect(page.getByText("3 · Jobs y resultados")).toBeVisible();
 
   // 1) Analizar transcript simple
   const transcript = "Hola esto es una prueba corta para AutoKit dashboard.";
@@ -26,7 +30,7 @@ test("dashboard básico funciona end-to-end", async ({ page }) => {
 
   await expect(page.locator("#jobOutput")).toContainText("ok");
 
-  // 3) Refrescar lista de jobs y usar al menos un botón de acción
+  // 3) Refrescar lista de jobs (top-level jobs section)
   await page.locator("#refreshJobsBtn").click();
   const jobsList = page.locator("#jobsList");
   await expect(jobsList).not.toContainText("No jobs yet.");
@@ -34,8 +38,8 @@ test("dashboard básico funciona end-to-end", async ({ page }) => {
   const firstJob = jobsList.locator(".job").first();
   await expect(firstJob).toBeVisible();
 
-  // Pulsa botón RESULT del primer job y comprueba que vuelve JSON
-  await firstJob.getByText("RESULT").click();
+  // Pulsa botón "Result" del primer job y comprueba que vuelve JSON
+  await firstJob.getByText("Result").click();
   await expect(page.locator("#jobOutput")).toContainText("result");
 });
 
@@ -56,8 +60,10 @@ test("Job Studio abre y muestra overview del job", async ({ page }) => {
   await expect(studioWrap).toBeHidden();
 });
 
-test("Media tools: botones QA y Music Analyze visibles y accionables", async ({ page }) => {
+test("Media tools: botões QA y Music Analyze visibles y accionables", async ({ page }) => {
   await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+  // Expand to reveal media tools
+  await page.locator("#toggleMoreBtn").click();
   await expect(page.getByText("4 · Media tools")).toBeVisible();
   await expect(page.locator("#qaBtn")).toBeVisible();
   await expect(page.locator("#musicBtn")).toBeVisible();

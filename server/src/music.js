@@ -262,9 +262,10 @@ export async function analyzeMusic(mediaPath, config) {
   const waveform = await generateWaveform(mediaPath, waveformPath, config.music?.assets?.waveformSize);
   const spectrogram = await generateSpectrogram(mediaPath, spectrogramPath, config.music?.assets?.spectrogramSize);
 
-  const durationSec = qa.qa?.loudness?.timeline?.length
-    ? qa.qa.loudness.timeline[qa.qa.loudness.timeline.length - 1].t
-    : null;
+  const timeline = qa.qa?.loudness?.timeline || [];
+  const durationSec = timeline.length
+    ? timeline[timeline.length - 1].t
+    : 0;
   const sortedBounds = [...sectionBounds].sort((a, b) => a.t - b.t);
   const sectionStarts = [0, ...sortedBounds.map((b) => b.t)];
   const sectionSegments = sectionStarts.map((start, idx) => {

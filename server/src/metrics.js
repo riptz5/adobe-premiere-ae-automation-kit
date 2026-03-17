@@ -20,10 +20,8 @@ export function recordPhase(jobId, phase, durationMs, profile, status) {
 
 export function getMetrics() {
   const byPhase = {};
-  let totalJobs = 0;
   const recent = phaseDurations.slice(-50);
   for (const r of recent) {
-    totalJobs += 1;
     if (!byPhase[r.phase]) byPhase[r.phase] = { sum: 0, count: 0 };
     byPhase[r.phase].sum += r.durationMs;
     byPhase[r.phase].count += 1;

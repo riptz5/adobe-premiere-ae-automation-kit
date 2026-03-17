@@ -39,7 +39,6 @@ const ConfigSchema = z.object({
       "i mean",
       "este",
       "ehh",
-      "mmm",
       "osea",
       "o sea",
       "vale"
@@ -187,6 +186,7 @@ const CONFIG_DIR = process.env.CONFIG_DIR || path.join(REPO_ROOT, "config");
 
 let cachedSources = null;
 const configCache = new Map();
+const configLoadingPromises = new Map();
 
 function deepMerge(target, ...sources) {
   for (const source of sources) {
@@ -276,16 +276,25 @@ export async function loadConfig({ profileOverride } = {}) {
 
   if (configCache.has(profile)) return configCache.get(profile);
 
-  const profileConfig = await loadProfileConfig(profile);
-  const merged = deepMerge({}, sources.defaultConfig, profileConfig, sources.localConfig);
-  merged.profile = profile;
+  // Deduplicate concurrent loads for the same profile
+  if (configLoadingPromises.has(profile)) return configLoadingPromises.get(profile);
 
-  const withEnv = applyEnvOverrides(merged);
-  const parsed = ConfigSchema.parse(withEnv);
-  const resolved = resolvePaths(parsed);
+  const loading = (async () => {
+    const profileConfig = await loadProfileConfig(profile);
+    const merged = deepMerge({}, sources.defaultConfig, profileConfig, sources.localConfig);
+    merged.profile = profile;
 
-  configCache.set(profile, resolved);
-  return resolved;
+    const withEnv = applyEnvOverrides(merged);
+    const parsed = ConfigSchema.parse(withEnv);
+    const resolved = resolvePaths(parsed);
+
+    configCache.set(profile, resolved);
+    configLoadingPromises.delete(profile);
+    return resolved;
+  })();
+
+  configLoadingPromises.set(profile, loading);
+  return loading;
 }
 
 export async function writeLocalConfig(payload) {
@@ -293,6 +302,7 @@ export async function writeLocalConfig(payload) {
   await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
   cachedSources = null;
   configCache.clear();
+  configLoadingPromises.clear();
   return payload;
 }
 
@@ -323,6 +333,7 @@ export async function writeProfile(name, payload = {}) {
   await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
   cachedSources = null;
   configCache.clear();
+  configLoadingPromises.clear();
   return payload;
 }
 
@@ -332,6 +343,7 @@ export async function deleteProfile(name) {
   await fs.unlink(filePath);
   cachedSources = null;
   configCache.clear();
+  configLoadingPromises.clear();
 }
 
 export { REPO_ROOT, CONFIG_DIR };

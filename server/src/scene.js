@@ -57,5 +57,7 @@ export function scenesToSegments(times, minGap = 1.0) {
     if (t - prev >= minGap) segments.push({ start: prev, end: t });
     prev = t;
   }
+  // push the final segment from the last cut to the end
+  if (times.length > 0) segments.push({ start: prev, end: null });
   return segments;
 }
