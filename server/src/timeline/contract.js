@@ -106,18 +106,54 @@ function markersToOtio(markers, fps) {
   }));
 }
 
+function buildTrack(name, kind, clips = [], markers = []) {
+  return { name, kind, clips, markers };
+}
+
+function buildTransitions(segments, musicMarkers) {
+  const transitions = [];
+  const markers = Array.isArray(musicMarkers) ? musicMarkers : [];
+  for (let i = 1; i < segments.length; i += 1) {
+    const boundary = segments[i].start;
+    const near = markers.find((m) => Math.abs((m.timeSec || m.t || 0) - boundary) < 0.25);
+    transitions.push({
+      at: boundary,
+      type: near ? "crossfade" : "cut",
+      reason: near ? "music" : "segment"
+    });
+  }
+  return transitions;
+}
+
+function buildDuckingCues(musicMarkers) {
+  const cues = [];
+  (musicMarkers || []).forEach((m) => {
+    const t = Number(m.timeSec || m.t || 0);
+    if (Number.isFinite(t)) {
+      cues.push({ timeSec: t, durationSec: 0.8, targetDb: -6, reason: m.type || "music" });
+    }
+  });
+  return cues;
+}
+
 export function buildTimelineContract(job, config = {}) {
   const fps = config.timeline?.fps || 25;
   const segments = normalizeSegments(job.result?.segments || []);
   const sceneSegments = normalizeSegments(job.sceneSegments || []);
   const markers = normalizeMarkers(job);
   const durationSec = pickDuration(job);
+  const media = job.input?.media?.path || null;
+
+  const dialogueTrack = buildTrack("dialogue", "audio", segments, markers);
+  const musicTrack = buildTrack("music", "audio", [], job.music?.markers || []);
+  const brollTrack = buildTrack("broll", "video", [], []);
+  const sfxTrack = buildTrack("sfx", "audio", [], []);
 
   const contract = {
     id: job.id,
     profile: job.profile || config.profile || "default",
     fps,
-    media: job.input?.media?.path || null,
+    media,
     durationSec,
     summary: job.result?.summary || "",
     chapters: job.result?.chapters || [],
@@ -127,12 +163,9 @@ export function buildTimelineContract(job, config = {}) {
     musicMarkers: job.music?.markers || [],
     broll: job.broll || [],
     markers,
-    tracks: {
-      dialogue: segments,
-      music: job.music || {},
-      broll: job.broll || [],
-      qa: job.qaMarkers || []
-    }
+    tracks: [dialogueTrack, musicTrack, brollTrack, sfxTrack],
+    transitions: buildTransitions(segments.length ? segments : sceneSegments, job.music?.markers || []),
+    duckingCues: buildDuckingCues(job.music?.markers || [])
   };
 
   return contract;

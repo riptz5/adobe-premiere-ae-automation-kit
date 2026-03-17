@@ -19,7 +19,28 @@ def load_timeline(path: str) -> Dict[str, Any]:
         data = json.load(f)
     if "contract" in data:
         return data["contract"]
+    if data.get("OTIO_SCHEMA"):
+        return otio_to_contract(data)
     return data
+
+
+def otio_to_contract(otio: Dict[str, Any]) -> Dict[str, Any]:
+    tracks = otio.get("tracks", [])
+    items = tracks[0].get("items", []) if tracks else []
+    fps = otio.get("global_start_time", {}).get("rate", 25)
+    segments = []
+    media = None
+    for idx, it in enumerate(items):
+        src = it.get("source_range", {})
+        st = src.get("start_time", {}).get("value", 0) / fps
+        dur = src.get("duration", {}).get("value", 0) / fps
+        mr = it.get("media_reference", {})
+        target = mr.get("target_url", "")
+        if target.startswith("file://"):
+            target = target.replace("file://", "")
+        media = media or target
+        segments.append({"start": st, "end": st + dur, "label": it.get("name", f"seg_{idx+1}")})
+    return {"fps": fps, "segments": segments, "media": media}
 
 
 def seg_frames(seg: Dict[str, Any], fps: float):
@@ -46,6 +67,11 @@ def build_mlt(contract: Dict[str, Any]) -> ET.Element:
         ET.SubElement(prod, "property", name="resource").text = media or ""
         ET.SubElement(prod, "property", name="in").text = str(start_f)
         ET.SubElement(prod, "property", name="out").text = str(max(start_f, end_f))
+        # basic fade in/out effect
+        fade = ET.SubElement(prod, "filter")
+        fade.set("mlt_service", "fade")
+        ET.SubElement(fade, "property", name="in").text = str(start_f)
+        ET.SubElement(fade, "property", name="out").text = str(max(start_f, end_f))
         entry = ET.SubElement(playlist, "entry", attrib={"producer": prod_id})
         ET.SubElement(entry, "property", name="in").text = str(start_f)
         ET.SubElement(entry, "property", name="out").text = str(max(start_f, end_f))

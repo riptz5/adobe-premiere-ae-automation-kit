@@ -59,8 +59,9 @@ class JobResult:
     sceneSegments: List[Segment]
     qaMarkers: List[Marker]
     broll: List[Dict[str, Any]]
-    media: str
+    media: Optional[str]
     musicMarkers: List[Marker]
+    mediaClips: List[str]
 
 
 def _parse_markers(arr) -> List[Marker]:
@@ -110,6 +111,7 @@ def load_contract(path: str) -> JobResult:
     scene_segments = _parse_segments(root.get("sceneSegments") or root.get("scenes"))
     broll = root.get("broll") or []
     media = root.get("media") or job_input.get("media", {}).get("path")
+    media_clips = root.get("mediaClips") or []
 
     return JobResult(
         markers=markers,
@@ -119,6 +121,37 @@ def load_contract(path: str) -> JobResult:
         broll=broll,
         media=media,
         musicMarkers=music_markers,
+        mediaClips=media_clips,
+    )
+
+
+def load_otio(path: str) -> JobResult:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    tracks = data.get("tracks", [])
+    items = tracks[0].get("items", []) if tracks else []
+    segments: List[Segment] = []
+    media_paths = []
+    for idx, it in enumerate(items):
+        src = it.get("source_range", {})
+        start = src.get("start_time", {}).get("value", 0) / src.get("start_time", {}).get("rate", 25)
+        duration = src.get("duration", {}).get("value", 0) / src.get("duration", {}).get("rate", 25)
+        media_ref = it.get("media_reference", {})
+        target = media_ref.get("target_url", "")
+        if target.startswith("file://"):
+            target = target.replace("file://", "")
+        if target:
+            media_paths.append(target)
+        segments.append(Segment(start=float(start), end=float(start + duration), label=it.get("name", f"seg_{idx+1}")))
+    return JobResult(
+        markers=[],
+        segments=segments,
+        sceneSegments=[],
+        qaMarkers=[],
+        broll=[],
+        media=media_paths[0] if media_paths else None,
+        musicMarkers=[],
+        mediaClips=media_paths,
     )
 
 
@@ -180,12 +213,17 @@ def apply_markers(scene, markers: List[Marker], fps: float):
             marker.note = m.comment
 
 
-def apply_segments(scene, media_path: str, segments: List[Segment], fps: float):
+def apply_segments(scene, media_path: str, segments: List[Segment], fps: float, music_markers: List[Marker]):
     current_start = 1
-    for seg in segments:
+    for idx, seg in enumerate(segments):
         if seg.action == "remove":
             continue
         start_frame = int(round(seg.start * fps)) + 1
+        if idx > 0 and music_markers:
+            boundary = seg.start
+            near = next((m for m in music_markers if abs(m.timeSec - boundary) < 0.25), None)
+            if near:
+                start_frame = max(1, start_frame - int(0.2 * fps))
         strip = add_media_strip(scene, media_path, channel=1, frame_start=start_frame, start_sec=seg.start, end_sec=seg.end, fps=fps)
         strip.name = seg.label or strip.name
         strip.blend_type = "REPLACE"
@@ -237,16 +275,28 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job-json", help="Ruta a job.json o result.json de AutoKit")
     parser.add_argument("--timeline", help="Ruta a timeline.json (TimelineContract).")
+    parser.add_argument("--otio", help="Ruta a OTIO JSON (timeline.otio.json).")
     parser.add_argument("--media", help="Ruta al clip de vídeo/audio fuente (opcional si timeline tiene media)")
+    parser.add_argument("--media-list", help="Ruta a JSON con lista de clips de media")
     parser.add_argument("--output", required=False, help="Ruta de salida (mp4). Si no se define, solo arma la timeline.")
     parser.add_argument("--fps", type=float, default=25.0, help="FPS de la timeline (default 25)")
     args = parser.parse_args()
 
-    if not args.job_json and not args.timeline:
-        raise SystemExit("Se requiere --job-json o --timeline")
+    if not args.job_json and not args.timeline and not args.otio:
+        raise SystemExit("Se requiere --job-json, --timeline o --otio")
 
-    contract = load_contract(args.timeline or args.job_json)
+    if args.otio:
+        contract = load_otio(args.otio)
+    else:
+        contract = load_contract(args.timeline or args.job_json)
+
     media_path = args.media or contract.media
+    media_clips = list(contract.mediaClips)
+    if args.media_list:
+        with open(args.media_list, "r", encoding="utf-8") as f:
+            media_clips = json.load(f)
+    if media_clips and not media_path:
+        media_path = media_clips[0]
     if not media_path:
         raise SystemExit("No hay media definida (use --media o asegure que timeline.media existe)")
 
@@ -255,9 +305,15 @@ def main():
     clear_vse(scene)
 
     target_segments = contract.segments or contract.sceneSegments
-    apply_segments(scene, media_path, target_segments, fps=args.fps)
+    apply_segments(scene, media_path, target_segments, fps=args.fps, music_markers=contract.musicMarkers)
     if not target_segments:
-        add_media_strip(scene, media_path, channel=1, frame_start=1, start_sec=0, end_sec=max(1, 60 / args.fps), fps=args.fps)
+        if media_clips and len(media_clips) > 1:
+            cursor = 1
+            for clip in media_clips:
+                add_media_strip(scene, clip, channel=1, frame_start=cursor, start_sec=0, end_sec=max(1, 60 / args.fps), fps=args.fps)
+                cursor += int(60 / args.fps)
+        else:
+            add_media_strip(scene, media_path, channel=1, frame_start=1, start_sec=0, end_sec=max(1, 60 / args.fps), fps=args.fps)
     apply_broll(scene, contract.broll, target_segments, fps=args.fps)
     combined_markers = contract.markers + contract.qaMarkers + contract.musicMarkers
     apply_markers(scene, combined_markers, fps=args.fps)

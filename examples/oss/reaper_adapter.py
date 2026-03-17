@@ -4,13 +4,12 @@ AutoKit → Reaper adapter (offline friendly).
 - Consume TimelineContract JSON (or job.json) and emit a minimal .RPP project.
 - Tracks: Dialogue, Music, Broll, SFX.
 - Items follow segments; markers include QA/music/scene markers.
-- Ducking hint: music items get a named envelope ready for sidechain.
+- Ducking: adds a basic volume envelope on Music track using duckingCues/music markers.
+- Template support: can inject tracks/markers into a .RPP template.
 
 Usage:
     python reaper_adapter.py --timeline timeline.json --rpp-out job.rpp
-
-If running inside Reaper as ReaScript Python, you can extend this to use the live API,
-but this file focuses on portable RPP generation.
+    python reaper_adapter.py --timeline timeline.json --template-rpp base.rpp --fxchain mix.RfxChain
 """
 
 import argparse
@@ -36,6 +35,7 @@ def load_contract(path: str) -> Dict[str, Any]:
             "qaMarkers": data.get("qaMarkers", []),
             "sceneSegments": data.get("sceneSegments", []),
             "musicMarkers": data.get("music", {}).get("markers", []),
+            "duckingCues": data.get("music", {}).get("markers", []),
             "broll": data.get("broll", []),
         }
     return data
@@ -63,7 +63,43 @@ def fmt_item(seg: Dict[str, Any], media_path: str) -> List[str]:
     return lines
 
 
-def build_rpp(contract: Dict[str, Any], media_path: str) -> str:
+def fmt_volume_env(ducking_cues: List[Dict[str, Any]]) -> List[str]:
+    if not ducking_cues:
+        return []
+    env = ["    <VOLENV", "      ACT 1 -1", "      VIS 1 1 1", "      ARM 0", "      DEFSHAPE 0"]
+    for cue in ducking_cues:
+        t = float(cue.get("timeSec", cue.get("t", 0.0)))
+        dur = float(cue.get("durationSec", 0.8))
+        low = 0.5
+        env.append(f"      PT {max(0.0, t - 0.1):.3f} 1.000000 0 0")
+        env.append(f"      PT {t:.3f} {low:.6f} 0 0")
+        env.append(f"      PT {t + dur:.3f} {low:.6f} 0 0")
+        env.append(f"      PT {t + dur + 0.1:.3f} 1.000000 0 0")
+    env.append("    >")
+    return env
+
+
+def load_fxchain(path: str) -> List[str]:
+    if not path:
+        return []
+    if not os.path.isfile(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    return ["    " + line for line in lines]
+
+
+def inject_into_template(template_text: str, payload: str) -> str:
+    marker = ";AUTOKIT_TRACKS"
+    if marker in template_text:
+        return template_text.replace(marker, payload)
+    lines = template_text.splitlines()
+    if lines and lines[-1].strip() == ">":
+        return "\n".join(lines[:-1] + [payload] + [">"])
+    return template_text + "\n" + payload
+
+
+def build_rpp(contract: Dict[str, Any], media_path: str, fxchain_path: str = "") -> str:
     markers = []
     for idx, m in enumerate((contract.get("markers") or []) + (contract.get("qaMarkers") or []) + (contract.get("musicMarkers") or [])):
         markers.append(fmt_marker(idx + 1, m))
@@ -89,10 +125,16 @@ def build_rpp(contract: Dict[str, Any], media_path: str) -> str:
         lines.extend(fmt_item(seg, media_path))
     lines.append("  >")
 
-    # Music track placeholder
+    # Music track
     lines.append("  <TRACK")
     lines.append("    NAME \"Music\"")
-    lines.append("    <FXCHAIN\n      SHOW 0\n    >")
+    fxchain = load_fxchain(fxchain_path)
+    if fxchain:
+        lines.append("    <FXCHAIN")
+        lines.append("      SHOW 0")
+        lines.extend(fxchain)
+        lines.append("    >")
+    lines.extend(fmt_volume_env(contract.get("duckingCues") or contract.get("musicMarkers") or []))
     lines.append("  >")
 
     # Broll track: place broll items aligned to segment start
@@ -118,6 +160,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--timeline", required=True, help="Ruta a timeline.json o job.json")
     parser.add_argument("--rpp-out", required=False, default=None, help="Ruta de salida .rpp (default: alongside json)")
+    parser.add_argument("--template-rpp", required=False, default="", help="Ruta a template .rpp para inyectar tracks")
+    parser.add_argument("--fxchain", required=False, default="", help="Ruta a archivo .RfxChain para preset de mezcla")
     args = parser.parse_args()
 
     contract = load_contract(args.timeline)
@@ -125,7 +169,11 @@ def main():
     if not media_path:
         raise SystemExit("TimelineContract no incluye media path")
 
-    rpp = build_rpp(contract, media_path)
+    rpp = build_rpp(contract, media_path, fxchain_path=args.fxchain)
+    if args.template_rpp and os.path.isfile(args.template_rpp):
+        with open(args.template_rpp, "r", encoding="utf-8") as f:
+            base = f.read()
+        rpp = inject_into_template(base, rpp)
     out_path = args.rpp_out or os.path.splitext(args.timeline)[0] + ".rpp"
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(rpp)
