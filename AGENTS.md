@@ -43,3 +43,25 @@ This repo follows a hard rule: **never start work with a single agent**.
 - API identifiers and routes are in English; documentation may be in Spanish.
 - Default LLM is Ollama (e.g. llama3:8b); config in `config/default.json` and `config/local.json`.
 - Dashboard vanilla is in `public/` and served at http://localhost:8787 when the server runs; Next.js dashboard is in `web/`.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Dir | Port | Start command |
+|---|---|---|---|
+| Express API + vanilla dashboard | `server/` | 8787 | `cd server && npm run dev` |
+| Next.js dashboard | `web/` | 3000 | `cd web && npm run dev` |
+
+### Running tests and lint
+
+- **Server tests:** `cd server && npm test` (syntax-checks core modules + runs contract smoke tests)
+- **Next.js lint:** `cd web && npm run lint`
+
+### Gotchas
+
+- The `web/` directory ships without `.eslintrc.json`. Running `next lint` for the first time prompts interactively. Create `web/.eslintrc.json` with `{"extends":"next/core-web-vitals"}` to make it non-interactive.
+- LLM features require Ollama running at `localhost:11434`; without it the server still works fine — transcript analysis falls back to heuristics (`useFallbacks: true` in config).
+- FFmpeg/FFprobe must be on `$PATH` for QA, music, scene-detect, reframe, and audio normalization features.
+- Both `server/` and `web/` use `package-lock.json` — use `npm ci` or `npm install` (not yarn/pnpm).
+- The Express server auto-creates `server/data/` directories on first run; these are gitignored.
