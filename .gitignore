@@ -47,3 +47,5 @@ web/dist/
 web/build/
 # Ignorar archivos de configuración locales
 local.json
+*.pyc
+__pycache__/
