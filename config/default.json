@@ -126,8 +126,8 @@
     "language": "auto",
     "vad": true,
     "format": "vtt",
-    "command": "whisper.cpp",
-    "modelPath": ""
+    "command": "whisper-cli",
+    "modelPath": "server/vendor/whisper-models/ggml-small.bin"
   },
   "integrations": {
     "frameio": {

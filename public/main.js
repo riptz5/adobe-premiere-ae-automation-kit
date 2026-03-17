@@ -302,8 +302,9 @@ async function loadProfiles() {
 async function analyze() {
   const transcript = document.getElementById("transcriptInput").value.trim();
   const profile = document.getElementById("profileSelect").value;
+  const removeFillers = document.getElementById("removeFillersCheck")?.checked || false;
   if (!transcript) return setLog(document.getElementById("analyzeOutput"), "Paste transcript first.");
-  const data = await postJSON("/v1/analyze/transcript", { transcript, profile });
+  const data = await postJSON("/v1/analyze/transcript", { transcript, profile, removeFillers });
   setLog(document.getElementById("analyzeOutput"), data);
 }
 
@@ -692,6 +693,74 @@ function wireActions() {
     if (!text) return setLog(document.getElementById("mediaOutput"), "Set b-roll text first.");
     postJSON("/v1/broll/suggest", { text })
       .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+
+  // Audio extract
+  const audioExtractBtn = document.getElementById("audioExtractBtn");
+  if (audioExtractBtn) audioExtractBtn.onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    const format = document.getElementById("audioExtractFmt")?.value || "wav";
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    postJSON("/v1/audio/extract", { path: mediaPath, format })
+      .then(data => setLog(document.getElementById("mediaOutput"), data))
+      .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
+  };
+
+  // Social export
+  const socialExportBtn = document.getElementById("socialExportBtn");
+  if (socialExportBtn) socialExportBtn.onclick = () => {
+    const mediaPath = document.getElementById("socialMediaPath")?.value?.trim() || "";
+    const platform = document.getElementById("socialPlatform")?.value || "youtube";
+    if (!mediaPath) return setLog(document.getElementById("socialOutput"), "Set media path first.");
+    setLog(document.getElementById("socialOutput"), "Processing...");
+    postJSON("/v1/export/social", { path: mediaPath, platform })
+      .then(data => setLog(document.getElementById("socialOutput"), data))
+      .catch(err => setLog(document.getElementById("socialOutput"), "Error: " + err.message));
+  };
+  const socialPresetsBtn = document.getElementById("socialPresetsBtn");
+  if (socialPresetsBtn) socialPresetsBtn.onclick = () => {
+    getJSON("/v1/export/social/presets")
+      .then(data => setLog(document.getElementById("socialOutput"), data))
+      .catch(err => setLog(document.getElementById("socialOutput"), "Error: " + err.message));
+  };
+
+  // Bilingual captions
+  const bilingualBtn = document.getElementById("bilingualBtn");
+  if (bilingualBtn) bilingualBtn.onclick = async () => {
+    const transcript = document.getElementById("bilingualTranscript")?.value?.trim() || "";
+    const targetLang = document.getElementById("bilingualLang")?.value || "en";
+    const resultEl = document.getElementById("bilingualResult");
+    const origEl = document.getElementById("bilingualOriginal");
+    if (!transcript) { setLog(resultEl, "Pega transcript primero."); return; }
+    setLog(resultEl, "Traduciendo...");
+    try {
+      const data = await postJSON("/v1/captions/bilingual", { transcript, targetLang });
+      setLog(origEl, data.original || transcript);
+      setLog(resultEl, data.translated || data.error || "Sin resultado.");
+    } catch (e) {
+      setLog(resultEl, "Error: " + e.message);
+    }
+  };
+  const bilingualCopyBtn = document.getElementById("bilingualCopyBtn");
+  if (bilingualCopyBtn) bilingualCopyBtn.onclick = () => {
+    const text = document.getElementById("bilingualResult")?.textContent || "";
+    navigator.clipboard?.writeText(text).then(() => {}).catch(() => {});
+  };
+
+  // Override normalizeBtn to include denoise toggle
+  document.getElementById("normalizeBtn").onclick = () => {
+    const mediaPath = document.getElementById("mediaToolsPath").value.trim();
+    const denoise = document.getElementById("denoiseCheck")?.checked || false;
+    if (!mediaPath) return setLog(document.getElementById("mediaOutput"), "Set media path first.");
+    // Pass denoise flag via a temporary config override if supported, otherwise just normalize
+    // The server respects config.audio.denoise — we patch via local config workaround:
+    // Simply note the denoise intent in the output for now and normalize
+    postJSON("/v1/audio/normalize", { path: mediaPath })
+      .then(data => {
+        const note = denoise ? " (denoise: enable audio.denoise in config for full effect)" : "";
+        setLog(document.getElementById("mediaOutput"), { ...data, note: note.trim() || undefined });
+      })
       .catch(err => setLog(document.getElementById("mediaOutput"), err.message));
   };
 

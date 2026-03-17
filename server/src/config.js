@@ -56,7 +56,7 @@ const ConfigSchema = z.object({
   }).default({})
   ,
   stt: z.object({
-    engine: z.enum(["whisper.cpp", "faster-whisper"]).default("whisper.cpp"),
+    engine: z.enum(["whisper.cpp", "faster-whisper", "whisper-cli"]).default("whisper.cpp"),
     modelSize: z.string().default("small"),
     language: z.string().default("auto"),
     vad: z.boolean().default(true),

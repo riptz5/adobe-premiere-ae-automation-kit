@@ -25,6 +25,17 @@ import { writeTimelineOutputs } from "./output_otio.js";
 import { generateRppForJob } from "./reaper.js";
 import { exportKdenliveForJob, exportBlenderVseForJob, exportNatronForJob, generateThumbnailForJob, checkOssTools } from "./oss_export.js";
 
+// Social export presets — aspect ratios + codec settings per platform
+const SOCIAL_PRESETS = {
+  youtube: { width: 1920, height: 1080, fps: 30, vcodec: "libx264", acodec: "aac", abitrate: "192k", vbitrate: "8000k", crf: 18, preset: "slow", label: "YouTube 1080p" },
+  youtube_shorts: { width: 1080, height: 1920, fps: 60, vcodec: "libx264", acodec: "aac", abitrate: "192k", vbitrate: "6000k", crf: 18, preset: "slow", label: "YouTube Shorts 9:16" },
+  instagram_reels: { width: 1080, height: 1920, fps: 30, vcodec: "libx264", acodec: "aac", abitrate: "128k", vbitrate: "3500k", crf: 20, preset: "medium", label: "Instagram Reels 9:16" },
+  instagram_feed: { width: 1080, height: 1080, fps: 30, vcodec: "libx264", acodec: "aac", abitrate: "128k", vbitrate: "3500k", crf: 20, preset: "medium", label: "Instagram Feed 1:1" },
+  tiktok: { width: 1080, height: 1920, fps: 60, vcodec: "libx264", acodec: "aac", abitrate: "128k", vbitrate: "3000k", crf: 21, preset: "medium", label: "TikTok 9:16" },
+  twitter: { width: 1280, height: 720, fps: 30, vcodec: "libx264", acodec: "aac", abitrate: "128k", vbitrate: "2500k", crf: 22, preset: "medium", label: "Twitter/X 720p" },
+  linkedin: { width: 1920, height: 1080, fps: 30, vcodec: "libx264", acodec: "aac", abitrate: "128k", vbitrate: "5000k", crf: 20, preset: "medium", label: "LinkedIn 1080p" }
+};
+
 const app = express();
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:8787";
 app.use((_req, res, next) => {
@@ -789,6 +800,132 @@ app.post("/v1/agent/chat", async (req, res) => {
     res.json({ ok: true, reply, steps });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message, reply: err.message });
+  }
+});
+
+// ─── Audio extract endpoint ───────────────────────────────────────────────────
+
+app.post("/v1/audio/extract", async (req, res) => {
+  const parsed = ProbeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+
+  const mediaPath = parsed.data.path;
+  const format = (req.body?.format || "wav").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const allowedFormats = ["wav", "mp3", "aac", "flac", "m4a"];
+  if (!allowedFormats.includes(format)) {
+    return res.status(400).json({ ok: false, error: `format must be one of: ${allowedFormats.join(", ")}` });
+  }
+
+  try {
+    const outDir = path.join(baseConfig.paths?.absDataDir || "server/data", "extracted");
+    await fs.mkdir(outDir, { recursive: true });
+    const stem = path.basename(mediaPath, path.extname(mediaPath));
+    const outPath = path.join(outDir, `${stem}_audio.${format}`);
+
+    const ffmpegBin = baseConfig.integrations?.oss?.ffmpegPath || "ffmpeg";
+    const codecMap = { wav: ["-c:a", "pcm_s16le"], mp3: ["-c:a", "libmp3lame", "-q:a", "2"], aac: ["-c:a", "aac", "-b:a", "192k"], flac: ["-c:a", "flac"], m4a: ["-c:a", "aac", "-b:a", "192k"] };
+    const codecArgs = codecMap[format] || ["-c:a", "copy"];
+    const args = ["-y", "-i", mediaPath, "-vn", "-ar", "48000", "-ac", "2", ...codecArgs, outPath];
+
+    const result = await new Promise((resolve) => {
+      const proc = spawn(ffmpegBin, args);
+      let stderr = "";
+      proc.stderr.on("data", d => { stderr += d.toString(); });
+      proc.on("error", (e) => resolve({ ok: false, error: e.message }));
+      proc.on("close", (code) => code === 0 ? resolve({ ok: true }) : resolve({ ok: false, error: stderr.slice(-300) }));
+    });
+
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputPath: outPath, format });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Social export endpoint ───────────────────────────────────────────────────
+
+app.get("/v1/export/social/presets", (_req, res) => {
+  res.json({ ok: true, presets: Object.fromEntries(Object.entries(SOCIAL_PRESETS).map(([k, v]) => [k, { label: v.label, width: v.width, height: v.height, fps: v.fps }])) });
+});
+
+app.post("/v1/export/social", async (req, res) => {
+  const parsed = ProbeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+
+  const platform = (req.body?.platform || "").toLowerCase();
+  const preset = SOCIAL_PRESETS[platform];
+  if (!preset) return res.status(400).json({ ok: false, error: `Unknown platform. Available: ${Object.keys(SOCIAL_PRESETS).join(", ")}` });
+
+  try {
+    const mediaPath = parsed.data.path;
+    const outDir = path.join(baseConfig.paths?.absDataDir || "server/data", "social");
+    await fs.mkdir(outDir, { recursive: true });
+    const stem = path.basename(mediaPath, path.extname(mediaPath));
+    const outPath = path.join(outDir, `${stem}_${platform}.mp4`);
+
+    const ffmpegBin = baseConfig.integrations?.oss?.ffmpegPath || "ffmpeg";
+    const args = [
+      "-y", "-i", mediaPath,
+      "-vf", `scale=${preset.width}:${preset.height}:force_original_aspect_ratio=decrease,pad=${preset.width}:${preset.height}:(ow-iw)/2:(oh-ih)/2`,
+      "-r", String(preset.fps),
+      "-c:v", preset.vcodec,
+      "-preset", preset.preset,
+      "-crf", String(preset.crf),
+      "-b:v", preset.vbitrate,
+      "-c:a", preset.acodec,
+      "-b:a", preset.abitrate,
+      "-movflags", "+faststart",
+      outPath
+    ];
+
+    const result = await new Promise((resolve) => {
+      const proc = spawn(ffmpegBin, args, { timeout: 30 * 60 * 1000 });
+      let stderr = "";
+      proc.stderr.on("data", d => { stderr += d.toString(); });
+      proc.on("error", (e) => resolve({ ok: false, error: e.message }));
+      proc.on("close", (code) => code === 0 ? resolve({ ok: true }) : resolve({ ok: false, error: stderr.slice(-500) }));
+    });
+
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputPath: outPath, platform, preset: { label: preset.label, width: preset.width, height: preset.height, fps: preset.fps } });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Bilingual captions endpoint ──────────────────────────────────────────────
+
+app.post("/v1/captions/bilingual", async (req, res) => {
+  const transcript = (req.body?.transcript || "").trim();
+  const targetLang = (req.body?.targetLang || "en").trim();
+  if (!transcript) return res.status(400).json({ ok: false, error: "transcript is required" });
+
+  const config = await loadConfig();
+  if (!config.llm?.enabled) {
+    return res.status(503).json({ ok: false, error: "LLM not enabled. Enable llm.enabled in config." });
+  }
+
+  try {
+    const baseUrl = (config.llm.baseUrl || "http://localhost:11434/v1").replace(/\/$/, "");
+    const model = config.llm.model || "llama3:8b";
+    const apiKey = config.llm.apiKey || "";
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+    const systemPrompt = `You are a subtitle translator. Translate the given VTT/SRT/text transcript to ${targetLang}. Preserve all timing lines exactly as-is. Only translate the text lines. Return ONLY the translated subtitle content, no explanations.`;
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: transcript }], temperature: 0.2 }),
+      signal: AbortSignal.timeout(config.llm.timeoutMs || 60000)
+    });
+
+    if (!response.ok) throw new Error(`LLM error ${response.status}`);
+    const data = await response.json();
+    const translated = data.choices?.[0]?.message?.content?.trim() || "";
+    return res.json({ ok: true, original: transcript, translated, targetLang });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

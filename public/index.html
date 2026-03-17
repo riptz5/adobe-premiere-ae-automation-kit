@@ -208,6 +208,9 @@
         <select id="profileSelect"></select>
         <label>Transcript (VTT/SRT/TXT)</label>
         <textarea id="transcriptInput" placeholder="Pega transcript..."></textarea>
+        <div class="row" style="gap:12px; flex-wrap:wrap;">
+          <label><input type="checkbox" id="removeFillersCheck"/> Quitar fillers (um, uh…)</label>
+        </div>
         <div class="row">
           <button id="analyzeBtn">Analyze</button>
           <button class="secondary" id="clearAnalyzeBtn">Clear</button>
@@ -246,6 +249,9 @@
         <div class="title">4 · Media tools (QA, normalize, scenes, reframe, b-roll)</div>
         <label>Media Path (local)</label>
         <input id="mediaToolsPath" placeholder="/path/video-or-audio.mp4"/>
+        <div class="row" style="gap:12px; flex-wrap:wrap;">
+          <label><input type="checkbox" id="denoiseCheck"/> Denoise audio</label>
+        </div>
         <div class="row">
           <button id="qaBtn">Run QA</button>
           <button class="secondary" id="normalizeBtn">Normalize Audio</button>
@@ -257,6 +263,15 @@
         <div class="row">
           <button id="musicBtn">Music Analyze</button>
           <button class="secondary" id="probeBtn">Probe</button>
+        </div>
+        <div class="row">
+          <button class="secondary" id="audioExtractBtn">Extraer Audio</button>
+          <select id="audioExtractFmt" style="font-size:12px;padding:4px;border-radius:4px;border:1px solid var(--border);">
+            <option value="wav">WAV</option>
+            <option value="mp3">MP3</option>
+            <option value="aac">AAC</option>
+            <option value="flac">FLAC</option>
+          </select>
         </div>
         <label>B-roll Text</label>
         <input id="brollText" placeholder="keywords o summary..."/>
@@ -323,6 +338,57 @@
         <div class="log" id="configEditorMessage">...</div>
       </section>
     </div>
+    <div class="grid-2">
+      <section class="card">
+        <div class="title">7 · Social Export (YouTube · Reels · TikTok · LinkedIn)</div>
+        <label>Media Path (local)</label>
+        <input id="socialMediaPath" placeholder="/path/video.mp4"/>
+        <label>Plataforma</label>
+        <select id="socialPlatform">
+          <option value="youtube">YouTube 1080p</option>
+          <option value="youtube_shorts">YouTube Shorts 9:16</option>
+          <option value="instagram_reels">Instagram Reels 9:16</option>
+          <option value="instagram_feed">Instagram Feed 1:1</option>
+          <option value="tiktok">TikTok 9:16</option>
+          <option value="twitter">Twitter/X 720p</option>
+          <option value="linkedin">LinkedIn 1080p</option>
+        </select>
+        <div class="row">
+          <button id="socialExportBtn">Export para red social</button>
+          <button class="secondary" id="socialPresetsBtn">Ver presets</button>
+        </div>
+        <label>Social Output</label>
+        <div class="log" id="socialOutput">...</div>
+      </section>
+
+      <section class="card">
+        <div class="title">8 · Captions bilingüe (LLM)</div>
+        <label>Transcript (VTT/SRT/texto)</label>
+        <textarea id="bilingualTranscript" placeholder="Pega transcript original..."></textarea>
+        <label>Idioma destino</label>
+        <select id="bilingualLang">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="pt">Português</option>
+          <option value="it">Italiano</option>
+          <option value="ja">日本語</option>
+          <option value="zh">中文</option>
+          <option value="ko">한국어</option>
+          <option value="ar">العربية</option>
+        </select>
+        <div class="row">
+          <button id="bilingualBtn">Traducir captions</button>
+          <button class="secondary" id="bilingualCopyBtn">Copiar traducción</button>
+        </div>
+        <label>Original</label>
+        <div class="log" id="bilingualOriginal" style="min-height:40px;">—</div>
+        <label>Traducción</label>
+        <div class="log" id="bilingualResult">...</div>
+      </section>
+    </div>
+
     <div class="grid-2">
       <section class="card">
         <div class="title">6 · OSS Export (Reaper · Kdenlive · Blender · Natron)</div>
