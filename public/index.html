@@ -323,6 +323,54 @@
         <div class="log" id="configEditorMessage">...</div>
       </section>
     </div>
+    <div class="grid-2">
+      <section class="card">
+        <div class="title">6 · OSS Export (Reaper · Kdenlive · Blender · Natron)</div>
+        <label>Job ID</label>
+        <input id="ossJobIdInput" placeholder="job-uuid o pega desde lista arriba"/>
+        <div class="row">
+          <button id="ossRppBtn" title="Genera .rpp para Reaper (DAW)">→ Reaper .rpp</button>
+          <button class="secondary" id="ossKdenliveBtn" title="Genera .mlt para Kdenlive (editor de video)">→ Kdenlive .mlt</button>
+        </div>
+        <div class="row">
+          <button class="secondary" id="ossBlenderBtn" title="Arma VSE en Blender (compositor)">→ Blender VSE</button>
+          <button class="secondary" id="ossNatronBtn" title="Batch Natron (VFX, dry-run por defecto)">→ Natron batch</button>
+        </div>
+        <div class="row">
+          <button class="secondary" id="ossThumbnailBtn" title="Genera thumbnail via GIMP/Pillow">→ Thumbnail (GIMP)</button>
+          <button class="secondary" id="ossHealthBtn" title="Verifica qué herramientas OSS están instaladas">Check tools</button>
+        </div>
+        <label>OSS Output</label>
+        <div class="log" id="ossOutput">...</div>
+      </section>
+
+      <section class="card">
+        <div class="title">6b · OSS Tool Status</div>
+        <p class="muted" style="font-size:12px; margin:0 0 8px;">
+          Reemplazos open-source de la suite Adobe:<br/>
+          <strong>Premiere Pro</strong> → Kdenlive + FFmpeg<br/>
+          <strong>After Effects</strong> → Blender VSE + Natron<br/>
+          <strong>Photoshop</strong> → GIMP + Pillow<br/>
+          <strong>Audition</strong> → Reaper + FFmpeg
+        </p>
+        <div id="ossToolStatus" class="log" style="min-height:100px;">Pulsa "Check tools" para ver disponibilidad.</div>
+        <label style="margin-top:8px;">Rutas de herramientas (config/local.json)</label>
+        <div class="row">
+          <input id="ossRppPathInput" placeholder="reaperPath (vacío = PATH)" style="flex:1;font-size:12px;"/>
+        </div>
+        <div class="row">
+          <input id="ossBlenderPathInput" placeholder="blenderPath (vacío = PATH)" style="flex:1;font-size:12px;"/>
+        </div>
+        <div class="row">
+          <input id="ossGimpPathInput" placeholder="gimpPath (vacío = PATH)" style="flex:1;font-size:12px;"/>
+        </div>
+        <div class="row">
+          <input id="ossFfmpegPathInput" placeholder="ffmpegPath (vacío = PATH)" style="flex:1;font-size:12px;"/>
+        </div>
+        <button class="secondary" id="ossPathsSaveBtn">Guardar rutas en config</button>
+        <div class="log" id="ossPathsMsg" style="min-height:28px;">...</div>
+      </section>
+    </div>
     </div><!-- /moreToolsWrap -->
 
     <section class="card">

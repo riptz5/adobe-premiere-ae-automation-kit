@@ -146,11 +146,20 @@
     },
     "oss": {
       "otioEnabled": true,
-      "blenderPath": "/Applications/Blender.app/Contents/MacOS/Blender",
-      "reaperPath": "/Applications/REAPER64.app/Contents/MacOS/REAPER",
+      "comment": "Set paths to OSS tools installed on this machine. Empty = search PATH.",
+      "kdenliveCliPath": "",
       "kdenlivePresetPath": "",
+      "reaperPath": "/Applications/REAPER64.app/Contents/MacOS/REAPER",
+      "fxchainPath": "",
+      "templateRppPath": "",
+      "blenderPath": "/Applications/Blender.app/Contents/MacOS/Blender",
+      "natronPath": "",
       "natronTemplatesDir": "",
+      "gimpPath": "",
+      "ffmpegPath": "",
+      "pythonPath": "",
       "timelineResultDir": "server/data/results",
+      "fps": 25,
       "debugMode": false
     }
   },

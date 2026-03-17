@@ -102,11 +102,24 @@ const ConfigSchema = z.object({
     }).default({}),
     oss: z.object({
       otioEnabled: z.boolean().default(true),
-      blenderPath: z.string().default(""),
-      reaperPath: z.string().default(""),
+      // Video editor — Premiere Pro replacement
+      kdenliveCliPath: z.string().default(""),
       kdenlivePresetPath: z.string().default(""),
+      // DAW — audio editor
+      reaperPath: z.string().default(""),
+      fxchainPath: z.string().default(""),
+      templateRppPath: z.string().default(""),
+      // Compositor / VFX — After Effects replacement
+      blenderPath: z.string().default(""),
+      natronPath: z.string().default(""),
       natronTemplatesDir: z.string().default(""),
+      // Image editor — Photoshop replacement
+      gimpPath: z.string().default(""),
+      // Shared
+      ffmpegPath: z.string().default(""),
+      pythonPath: z.string().default(""),
       timelineResultDir: z.string().default(""),
+      fps: z.number().default(25),
       debugMode: z.boolean().default(false)
     }).default({})
   }).default({}),

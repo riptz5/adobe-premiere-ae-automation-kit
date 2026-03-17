@@ -22,6 +22,8 @@ import { runAgentChat } from "./agent.js";
 import { spawn } from "child_process";
 import { buildTimelineContract, timelineToOtio } from "./timeline/contract.js";
 import { writeTimelineOutputs } from "./output_otio.js";
+import { generateRppForJob } from "./reaper.js";
+import { exportKdenliveForJob, exportBlenderVseForJob, exportNatronForJob, generateThumbnailForJob, checkOssTools } from "./oss_export.js";
 
 const app = express();
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:8787";
@@ -789,6 +791,121 @@ app.post("/v1/agent/chat", async (req, res) => {
     res.status(500).json({ ok: false, error: err.message, reply: err.message });
   }
 });
+
+// ─── OSS Export endpoints ─────────────────────────────────────────────────────
+
+app.get("/v1/oss/health", async (_req, res) => {
+  const ossConfig = baseConfig.integrations?.oss || {};
+  const tools = await checkOssTools(ossConfig);
+  res.json({ ok: true, tools });
+});
+
+app.post("/v1/export/reaper", async (req, res) => {
+  const jobId = (req.body?.jobId || "").trim();
+  if (!jobId) return res.status(400).json({ ok: false, error: "jobId is required" });
+  try {
+    const job = await readJob(jobId, baseConfig);
+    const result = await generateRppForJob(job, baseConfig);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, rppPath: result.rppPath });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/v1/jobs/:id/rpp", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    const result = await generateRppForJob(job, baseConfig);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    const rppContent = await fs.readFile(result.rppPath, "utf8");
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="job_${req.params.id.slice(0, 8)}.rpp"`);
+    res.send(rppContent);
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/export/kdenlive", async (req, res) => {
+  const jobId = (req.body?.jobId || "").trim();
+  if (!jobId) return res.status(400).json({ ok: false, error: "jobId is required" });
+  try {
+    const job = await readJob(jobId, baseConfig);
+    const result = await exportKdenliveForJob(job, baseConfig);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputPath: result.outputPath });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/v1/jobs/:id/mlt", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    const result = await exportKdenliveForJob(job, baseConfig);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    const content = await fs.readFile(result.outputPath, "utf8");
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Content-Disposition", `attachment; filename="job_${req.params.id.slice(0, 8)}.mlt"`);
+    res.send(content);
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/export/blender", async (req, res) => {
+  const jobId = (req.body?.jobId || "").trim();
+  if (!jobId) return res.status(400).json({ ok: false, error: "jobId is required" });
+  try {
+    const job = await readJob(jobId, baseConfig);
+    const result = await exportBlenderVseForJob(job, baseConfig);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputPath: result.outputPath });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/export/natron", async (req, res) => {
+  const jobId = (req.body?.jobId || "").trim();
+  if (!jobId) return res.status(400).json({ ok: false, error: "jobId is required" });
+  const label = (req.body?.label || "vfx").trim();
+  const dryRun = req.body?.dryRun !== false;
+  try {
+    const job = await readJob(jobId, baseConfig);
+    const result = await exportNatronForJob(job, baseConfig, req.body?.templateNtp, label, dryRun);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputDir: result.outputDir, stdout: result.stdout });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/export/thumbnail", async (req, res) => {
+  const jobId = (req.body?.jobId || "").trim();
+  if (!jobId) return res.status(400).json({ ok: false, error: "jobId is required" });
+  try {
+    const job = await readJob(jobId, baseConfig);
+    const result = await generateThumbnailForJob(job, baseConfig, {
+      width: req.body?.width || 1280,
+      height: req.body?.height || 720
+    });
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json({ ok: true, outputPath: result.outputPath });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── server start ─────────────────────────────────────────────────────────────
 
 const PORT = baseConfig.server.port;
 const server = app.listen(PORT, () => {

@@ -874,3 +874,101 @@ init().catch(err => {
   const pill = document.getElementById("statusPill");
   if (pill) pill.textContent = `status: error ${err.message}`;
 });
+
+// ─── OSS Export panel ─────────────────────────────────────────────────────────
+
+function getOssJobId() {
+  return (document.getElementById("ossJobIdInput")?.value || "").trim();
+}
+
+async function ossExport(endpoint, body, successKey) {
+  const out = document.getElementById("ossOutput");
+  setLog(out, "...");
+  try {
+    const data = await postJSON(endpoint, body);
+    setLog(out, data);
+  } catch (e) {
+    setLog(out, "Error: " + e.message);
+  }
+}
+
+(function wireOssPanel() {
+  const rppBtn = document.getElementById("ossRppBtn");
+  if (rppBtn) rppBtn.onclick = async () => {
+    const jobId = getOssJobId();
+    if (!jobId) { setLog(document.getElementById("ossOutput"), "Introduce un Job ID"); return; }
+    await ossExport("/v1/export/reaper", { jobId });
+  };
+
+  const kdenliveBtn = document.getElementById("ossKdenliveBtn");
+  if (kdenliveBtn) kdenliveBtn.onclick = async () => {
+    const jobId = getOssJobId();
+    if (!jobId) { setLog(document.getElementById("ossOutput"), "Introduce un Job ID"); return; }
+    await ossExport("/v1/export/kdenlive", { jobId });
+  };
+
+  const blenderBtn = document.getElementById("ossBlenderBtn");
+  if (blenderBtn) blenderBtn.onclick = async () => {
+    const jobId = getOssJobId();
+    if (!jobId) { setLog(document.getElementById("ossOutput"), "Introduce un Job ID"); return; }
+    await ossExport("/v1/export/blender", { jobId });
+  };
+
+  const natronBtn = document.getElementById("ossNatronBtn");
+  if (natronBtn) natronBtn.onclick = async () => {
+    const jobId = getOssJobId();
+    if (!jobId) { setLog(document.getElementById("ossOutput"), "Introduce un Job ID"); return; }
+    await ossExport("/v1/export/natron", { jobId, dryRun: true });
+  };
+
+  const thumbBtn = document.getElementById("ossThumbnailBtn");
+  if (thumbBtn) thumbBtn.onclick = async () => {
+    const jobId = getOssJobId();
+    if (!jobId) { setLog(document.getElementById("ossOutput"), "Introduce un Job ID"); return; }
+    await ossExport("/v1/export/thumbnail", { jobId });
+  };
+
+  const healthBtn = document.getElementById("ossHealthBtn");
+  if (healthBtn) healthBtn.onclick = async () => {
+    const out = document.getElementById("ossOutput");
+    const statusEl = document.getElementById("ossToolStatus");
+    setLog(out, "Checking OSS tools...");
+    try {
+      const data = await getJSON("/v1/oss/health");
+      const tools = data.tools || {};
+      const lines = Object.entries(tools).map(([k, v]) =>
+        (v ? "✓ " : "✗ ") + k + (v ? " — disponible" : " — NO encontrado (instalar o configurar path)")
+      );
+      const summary = lines.join("\n");
+      setLog(out, summary);
+      if (statusEl) setLog(statusEl, summary);
+    } catch (e) {
+      setLog(out, "Error: " + e.message);
+    }
+  };
+
+  const savePathsBtn = document.getElementById("ossPathsSaveBtn");
+  if (savePathsBtn) savePathsBtn.onclick = async () => {
+    const msg = document.getElementById("ossPathsMsg");
+    const reaperPath = (document.getElementById("ossRppPathInput")?.value || "").trim();
+    const blenderPath = (document.getElementById("ossBlenderPathInput")?.value || "").trim();
+    const gimpPath = (document.getElementById("ossGimpPathInput")?.value || "").trim();
+    const ffmpegPath = (document.getElementById("ossFfmpegPathInput")?.value || "").trim();
+    setLog(msg, "Guardando...");
+    try {
+      // Read current local config, merge, save
+      const current = await getJSON("/v1/config/local");
+      const local = current.local || {};
+      const oss = local.integrations?.oss || {};
+      if (reaperPath) oss.reaperPath = reaperPath;
+      if (blenderPath) oss.blenderPath = blenderPath;
+      if (gimpPath) oss.gimpPath = gimpPath;
+      if (ffmpegPath) oss.ffmpegPath = ffmpegPath;
+      local.integrations = { ...(local.integrations || {}), oss };
+      await postJSON("/v1/config/local", local);
+      setLog(msg, "Rutas guardadas en config/local.json");
+    } catch (e) {
+      setLog(msg, "Error: " + e.message);
+    }
+  };
+})();
