@@ -1,27 +1,21 @@
 # Issues / Tareas ejecutables
 
-## P0 - Pipeline core (local-first)
-- [ ] Backend: job pipeline con STT -> LLM -> segments/markers -> outputs versionados.
-- [ ] Watch folders: ingest de media + transcripts con auto-run y estado persistente.
-- [ ] Dashboard local: crear job desde media path, ver resultados y markers.
-- [ ] CEP panel: boton "Analizar media" aplica markers directo en secuencia activa.
+**Estado v1.0.0-local-first**: Lo siguiente está **hecho**. Ver `notes/master-backlog.md` para el estado consolidado y `notes/release-checklist.completed.md` para evidencias.
 
-## P1 - Integraciones Adobe
-- [ ] Premiere: razor-cuts desde `segments` (keep/remove) en secuencia activa.
-- [ ] Premiere: importar media + organizar bins por reglas config.
-- [ ] AE: batch por CSV + aplicar markers desde JSON.
-- [ ] Photoshop: crear composiciones con summary/highlights (texto + capas).
+## ✅ Hecho (P0–P4 cubiertos)
 
-## P2 - Media/Audio/QA
-- [ ] STT: presets por perfil (model size, language, VAD).
-- [ ] Audio cleanup: normalizacion + denoise (local).
-- [ ] QA tecnico: silencios, picos, negros, drift.
+- **P0**: Job pipeline STT→LLM→segments/markers/outputs; watch folders; dashboard crear job y ver resultados; CEP "Analizar media" aplica markers.
+- **P1**: Premiere segments (razor); AE batch CSV + markers JSON; Photoshop summary/highlights. Importar/organizar bins: parcial (CEP import).
+- **P2**: STT por perfil; QA técnico (silence/black/loudness) y export CSV en dashboard. Audio normalize. Denoise: en config, no obligatorio.
+- **P3**: Config UI con tabs (General, Ingest, Analyze, Edit, Render, Integrations, Advanced); perfiles shorts/ads/longform/docu; reportes por job vía Job Studio y QA CSV.
+- **P4**: Licencia MIT, CONTRIBUTING, setup.sh, run_all.sh, ejemplos en examples/, checklist en release-checklist.completed.
 
-## P3 - Config/UX
-- [ ] Config UI completa (tabs, toggles, perfiles).
-- [ ] Perfiles: shorts/ads/longform/docu con defaults reales.
-- [ ] Reportes por job + export de metadata.
+## Backlog opcional (futuras versiones)
 
-## P4 - OSS
-- [ ] Licencia MIT + CONTRIBUTING + ejemplo end-to-end.
-- [ ] Scripts de setup (LLM + STT) y checklist de QA.
+Ver `notes/master-backlog.md` sección "Futuras versiones":
+
+- Highlight reels (B1), text-edit (B2), b-roll contextual (B3), perfil trailer/teaser (B4).
+- Validación JSON en editor config, diff al guardar.
+- Drag-and-drop Kanban (requiere API PATCH estado).
+- Frame.io / Adobe Stock integraciones completas.
+- CLIP/vector DB para b-roll, MOGRT export AE, etc. (roadmap).

@@ -15,6 +15,13 @@ import { normalizeAudio } from "./audio.js";
 import { detectScenes } from "./scene.js";
 import { suggestBroll } from "./broll.js";
 import { reframeAll, reframeMedia } from "./reframe.js";
+import { analyzeMusic } from "./music.js";
+import { getMetrics } from "./metrics.js";
+import { logInfo } from "./logger.js";
+import { runAgentChat } from "./agent.js";
+import { spawn } from "child_process";
+import { buildTimelineContract, timelineToOtio } from "./timeline/contract.js";
+import { writeTimelineOutputs } from "./output_otio.js";
 
 const app = express();
 app.use((_req, res, next) => {
@@ -29,7 +36,8 @@ app.use(morgan("dev"));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicDir = path.join(__dirname, "..", "public");
+const repoRoot = path.resolve(__dirname, "..", "..");
+const publicDir = path.join(repoRoot, "public");
 
 let baseConfig = await loadConfig();
 await initJobStore(baseConfig);
@@ -46,7 +54,8 @@ const AnalyzeSchema = z.object({
   lang: z.string().optional(),
   style: z.string().optional(),
   maxDurationSec: z.number().int().positive().optional(),
-  profile: z.string().optional()
+  profile: z.string().optional(),
+  removeFillers: z.boolean().optional()
 });
 
 const JobCreateSchema = z.object({
@@ -65,12 +74,52 @@ const ProbeSchema = z.object({
   path: z.string().min(1)
 });
 
-app.get("/health", (_req, res) => {
+async function checkFfmpeg() {
+  return new Promise((resolve) => {
+    const proc = spawn("ffmpeg", ["-version"]);
+    const t = setTimeout(() => {
+      proc.kill("SIGKILL");
+      resolve({ ok: false, error: "timeout" });
+    }, 3000);
+    proc.on("error", () => {
+      clearTimeout(t);
+      resolve({ ok: false, error: "ffmpeg not found" });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(t);
+      resolve({ ok: code === 0 });
+    });
+  });
+}
+
+app.get("/health", async (_req, res) => {
+  let jobsQueued = 0;
+  let jobsRunning = 0;
+  try {
+    const jobs = await listJobs(baseConfig, 500);
+    for (const j of jobs) {
+      if (j.status === "queued") jobsQueued += 1;
+      else if (j.status === "running") jobsRunning += 1;
+    }
+  } catch (_) {}
+  const ffmpeg = await checkFfmpeg();
+  const llmReachable = baseConfig.llm?.enabled
+    ? await fetch(`${baseConfig.llm.baseUrl.replace(/\/$/, "")}/api/tags`, { signal: AbortSignal.timeout(2000) }).then(() => true).catch(() => false)
+    : null;
   res.json({
     ok: true,
     ts: new Date().toISOString(),
-    profile: baseConfig.profile
+    profile: baseConfig.profile,
+    runMode: baseConfig.runMode,
+    autoRun: baseConfig.autoRun,
+    watchers: Array.isArray(watchers) ? watchers.length : 0,
+    jobs: { queued: jobsQueued, running: jobsRunning },
+    deps: { ffmpeg: ffmpeg.ok, llm: llmReachable }
   });
+});
+
+app.get("/v1/metrics", (_req, res) => {
+  res.json({ ok: true, metrics: getMetrics() });
 });
 
 app.use("/", express.static(publicDir));
@@ -241,7 +290,8 @@ app.post("/v1/jobs", async (req, res) => {
 app.get("/v1/jobs", async (req, res) => {
   try {
     const limit = req.query.limit ? Number(req.query.limit) : 50;
-    const jobs = await listJobs(baseConfig, Number.isFinite(limit) ? limit : 50);
+    const sinceDays = req.query.sinceDays ? Number(req.query.sinceDays) : null;
+    const jobs = await listJobs(baseConfig, Number.isFinite(limit) ? limit : 50, sinceDays);
     res.json({ ok: true, jobs });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -433,6 +483,19 @@ app.get("/v1/jobs/:id/reframe", async (req, res) => {
   }
 });
 
+app.get("/v1/jobs/:id/timeline", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    if (!job) return res.status(404).json({ ok: false, error: "Job not found" });
+    const contract = buildTimelineContract(job, baseConfig);
+    const otio = timelineToOtio(contract);
+    const written = await writeTimelineOutputs(job, baseConfig);
+    res.json({ ok: true, contract, otio, outputs: written ? { timelinePath: written.timelinePath, otioPath: written.otioPath } : null });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post("/v1/jobs/:id/run", async (req, res) => {
   try {
     const job = await readJob(req.params.id, baseConfig);
@@ -443,6 +506,45 @@ app.post("/v1/jobs/:id/run", async (req, res) => {
     const jobConfig = await loadConfig({ profileOverride: job.profile || baseConfig.profile });
     const completed = await runJob(job, jobConfig);
     res.json({ ok: true, job: completed });
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return res.status(404).json({ ok: false, error: "Job not found" });
+    }
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/jobs/:id/retry", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    if (job.status === "running") {
+      return res.status(409).json({ ok: false, error: "Job is already running" });
+    }
+    const jobConfig = await loadConfig({ profileOverride: job.profile || baseConfig.profile });
+
+    job.status = "queued";
+    job.updatedAt = new Date().toISOString();
+    job.error = undefined;
+    job.result = undefined;
+    job.qa = undefined;
+    job.qaMarkers = undefined;
+    job.scenes = undefined;
+    job.sceneSegments = undefined;
+    job.broll = undefined;
+    job.reframed = undefined;
+    job.outputs = undefined;
+    job.completedAt = undefined;
+    job.startedAt = undefined;
+    job.events = job.events || [];
+    job.events.push({ ts: new Date().toISOString(), type: "retry", message: "Retry requested" });
+    await writeJob(job, jobConfig);
+
+    const autoRun = req.body?.autoRun !== false;
+    if (autoRun) {
+      const completed = await runJob(job, jobConfig);
+      return res.json({ ok: true, job: completed });
+    }
+    res.json({ ok: true, job });
   } catch (err) {
     if (err.code === "ENOENT") {
       return res.status(404).json({ ok: false, error: "Job not found" });
@@ -502,9 +604,193 @@ app.post("/v1/reframe", async (req, res) => {
   return res.json({ ok: true, outputs: result.outputs });
 });
 
+app.post("/v1/music/analyze", async (req, res) => {
+  const parsed = ProbeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  try {
+    const profile = (req.body?.profile || baseConfig.profile || "shorts").trim();
+    const cfg = await loadConfig({ profileOverride: profile });
+    const result = await analyzeMusic(parsed.data.path, cfg);
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    return res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/v1/agent/chat", async (req, res) => {
+  const message = (req.body?.message ?? req.body?.content ?? "").trim();
+  const history = Array.isArray(req.body?.history) ? req.body.history : [];
+  if (!message) return res.status(400).json({ ok: false, error: "message is required" });
+
+  const config = await loadConfig();
+
+  const actions = {
+    getConfig: async () => ({ config: redactConfig(config) }),
+    listProfiles: async () => {
+      const list = await listProfiles();
+      return { profiles: list };
+    },
+    getProfile: async (name) => {
+      const cfg = await loadConfig({ profileOverride: name || config.profile });
+      return { config: redactConfig(cfg) };
+    },
+    createProfile: async (profileName, fromName) => {
+      const base = fromName ? await readProfile(fromName) : {};
+      await writeProfile(profileName, base);
+      const list = await listProfiles();
+      return { profile: profileName, profiles: list };
+    },
+    saveProfile: async (profileName, payload) => {
+      if (!payload || typeof payload !== "object") throw new Error("invalid payload");
+      await writeProfile(profileName, payload);
+      const cfg = await loadConfig({ profileOverride: profileName });
+      return { profile: profileName, config: redactConfig(cfg) };
+    },
+    deleteProfile: async (profileName) => {
+      await deleteProfile(profileName);
+      return { profiles: await listProfiles() };
+    },
+    getLocalConfig: async () => {
+      const filePath = path.join(CONFIG_DIR, "local.json");
+      let raw = "{}";
+      try {
+        raw = await fs.readFile(filePath, "utf8");
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+      return { local: raw ? JSON.parse(raw) : {} };
+    },
+    saveLocalConfig: async (payload) => {
+      if (!payload || typeof payload !== "object") throw new Error("Invalid payload");
+      const saved = await writeLocalConfig(payload);
+      baseConfig = await loadConfig();
+      if (watchers) {
+        for (const watcher of watchers) {
+          try { watcher.close(); } catch (e) { /* ignore */ }
+        }
+      }
+      watchers = await startWatchers(baseConfig);
+      return { ok: true, local: saved };
+    },
+    getHealth: async () => {
+      let jobsQueued = 0, jobsRunning = 0;
+      try {
+        const jobs = await listJobs(config, 500);
+        for (const j of jobs) {
+          if (j.status === "queued") jobsQueued += 1;
+          else if (j.status === "running") jobsRunning += 1;
+        }
+      } catch (_) {}
+      const ffmpeg = await checkFfmpeg();
+      const llmReachable = config.llm?.enabled
+        ? await fetch(`${(config.llm.baseUrl || "http://127.0.0.1:11434").replace(/\/$/, "")}/api/tags`, { signal: AbortSignal.timeout(2000) }).then(() => true).catch(() => false)
+        : null;
+      return {
+        ok: true,
+        ts: new Date().toISOString(),
+        profile: config.profile,
+        runMode: config.runMode,
+        autoRun: config.autoRun,
+        watchers: Array.isArray(watchers) ? watchers.length : 0,
+        jobs: { queued: jobsQueued, running: jobsRunning },
+        deps: { ffmpeg: ffmpeg.ok, llm: llmReachable },
+      };
+    },
+    getMetrics: () => Promise.resolve(getMetrics()),
+    listJobs: async () => {
+      const list = await listJobs(config, 100);
+      return { jobs: list };
+    },
+    getJob: (id) => readJob(id, config),
+    createJob: async (body) => {
+      const profile = body?.profile || config.profile;
+      const jobConfig = await loadConfig({ profileOverride: profile });
+      await initJobStore(jobConfig);
+      const runMode = jobConfig.runMode || "auto";
+      const autoRun = body?.autoRun !== undefined ? body.autoRun : runMode === "auto";
+      const job = newJob({
+        transcript: body?.transcript || "",
+        media: body?.mediaPath ? { path: body.mediaPath, kind: "media" } : null,
+        profile,
+      });
+      job.runMode = runMode;
+      await writeJob(job, jobConfig);
+      if (autoRun && runMode !== "dry-run") {
+        const completed = await runJob(job, jobConfig);
+        return { job: completed };
+      }
+      return { job };
+    },
+    runJob: async (id) => {
+      const job = await readJob(id, config);
+      const jobConfig = await loadConfig({ profileOverride: job.profile || config.profile });
+      return await runJob(job, jobConfig);
+    },
+    retryJob: async (id) => {
+      const job = await readJob(id, config);
+      const jobConfig = await loadConfig({ profileOverride: job.profile || config.profile });
+      job.status = "queued";
+      job.updatedAt = new Date().toISOString();
+      job.error = undefined;
+      job.result = undefined;
+      job.qa = undefined;
+      job.qaMarkers = undefined;
+      job.scenes = undefined;
+      job.broll = undefined;
+      job.reframed = undefined;
+      job.outputs = undefined;
+      job.completedAt = undefined;
+      job.startedAt = undefined;
+      job.events = (job.events || []).concat([{ ts: new Date().toISOString(), type: "retry", message: "Retry requested" }]);
+      await writeJob(job, jobConfig);
+      const completed = await runJob(job, jobConfig);
+      return { job: completed };
+    },
+    probe: (path) => probeMedia(path).then((r) => (r.ok ? r : Promise.reject(new Error(r.error)))),
+    runQa: (path) => analyzeMedia(path, config).then((r) => (r.ok ? { qa: r.qa } : Promise.reject(new Error(r.error)))),
+    analyzeTranscript: (body) => analyzeTranscript({ transcript: body.transcript, profile: body.profile }, config),
+    normalizeAudio: (path) => normalizeAudio(path, config).then((r) => (r.ok ? { outputPath: r.outputPath } : Promise.reject(new Error(r.error)))),
+    sceneDetect: (path) => detectScenes(path, config).then((r) => (r.ok ? { scenes: r.scenes } : Promise.reject(new Error(r.error)))),
+    brollSuggest: (text) => suggestBroll(text || "", config).then((r) => (r.ok ? { broll: r.items } : Promise.reject(new Error(r.error)))),
+    reframe: (path, target) => {
+      const cfg = { ...config, reframe: { ...(config.reframe || {}), targets: [target || "9:16"] } };
+      return reframeAll(path, cfg).then((r) => (r.ok ? { outputs: r.outputs } : Promise.reject(new Error(r.error))));
+    },
+    musicAnalyze: async (path, profile) => {
+      const cfg = await loadConfig({ profileOverride: profile || config.profile });
+      const result = await analyzeMusic(path, cfg);
+      if (!result.ok) throw new Error(result.error);
+      return result;
+    },
+  };
+
+  if (!config.llm?.enabled) {
+    return res.status(503).json({
+      ok: false,
+      error: "LLM not enabled. Enable llm.enabled in config to use the agent.",
+      reply: "El agente necesita un LLM (Ollama). Activa llm.enabled en la config.",
+    });
+  }
+
+  try {
+    const { reply, steps } = await runAgentChat(message, history, actions, config);
+    res.json({ ok: true, reply, steps });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, reply: err.message });
+  }
+});
+
 const PORT = baseConfig.server.port;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[autokit-server] Ready at http://localhost:${PORT}`);
+});
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`[autokit-server] Port ${PORT} already in use. Stop the other process or use a different port.`);
+    process.exit(1);
+  }
+  throw err;
 });
 
 process.on("SIGINT", () => {

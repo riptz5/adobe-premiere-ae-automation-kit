@@ -64,15 +64,22 @@ fi
 mkdir -p "$outdir"
 printf "%s\n" "$prompt" > "${outdir}/task.txt"
 
+agent_pids=()
+
 run_agent() {
   local role="$1"
   local sandbox="$2"
   local outfile="${outdir}/${role}.md"
   local logfile="${outdir}/${role}.log"
 
-  local -a cmd=(codex exec -s "$sandbox" -o "$outfile")
+  # Disable MCP_DOCKER by default to avoid startup timeouts in environments
+  # without Docker MCP gateway; callers can override via --codex-arg "-c ...".
+  local -a cmd=(codex exec -s "$sandbox" -o "$outfile" -c 'mcp_servers.MCP_DOCKER.enabled=false')
   [[ -n "$model" ]] && cmd+=(-m "$model")
-  cmd+=("${codex_extra[@]}" -)
+  if ((${#codex_extra[@]})); then
+    cmd+=("${codex_extra[@]}")
+  fi
+  cmd+=(-)
 
   {
     case "$role" in
@@ -106,19 +113,20 @@ EOF
         ;;
     esac
   } | "${cmd[@]}" >"$logfile" 2>&1 &
-
-  echo "$!"
+  agent_pids+=("$!")
 }
 
 echo "[codex-trio] outdir: $outdir"
-planner_pid="$(run_agent planner "$planner_sandbox")"
-impl_pid="$(run_agent implementer "$impl_sandbox")"
-review_pid="$(run_agent reviewer "$review_sandbox")"
+run_agent planner "$planner_sandbox"
+run_agent implementer "$impl_sandbox"
+run_agent reviewer "$review_sandbox"
 
+
+# Espera a que todos los jobs en background terminen
 fail=0
-wait "$planner_pid" || fail=1
-wait "$impl_pid" || fail=1
-wait "$review_pid" || fail=1
+for pid in "${agent_pids[@]}"; do
+  wait "$pid" || fail=1
+done
 
 echo "[codex-trio] done: ${outdir}/planner.md ${outdir}/implementer.md ${outdir}/reviewer.md"
 exit "$fail"

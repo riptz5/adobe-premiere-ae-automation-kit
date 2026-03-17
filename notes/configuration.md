@@ -4,6 +4,20 @@
 Un solo lugar para activar/desactivar flujos, seleccionar perfiles y ajustar
 parametros sin tocar codigo.
 
+## runMode × autoRun (tabla de verdad)
+
+| runMode  | autoRun | Watcher (watch folders)     | POST /v1/jobs (dashboard/CEP)     |
+|----------|--------|-----------------------------|------------------------------------|
+| auto     | true   | Crea job y ejecuta pipeline | Si no se pasa autoRun: ejecuta pipeline |
+| auto     | false  | Crea job, no ejecuta         | Si no se pasa autoRun: no ejecuta  |
+| manual   | true   | Crea job y ejecuta pipeline | Solo ejecuta si body.autoRun=true  |
+| manual   | false  | Crea job, no ejecuta        | No ejecuta (crear y correr después con POST /v1/jobs/:id/run) |
+| dry-run  | *      | Crea job; si autoRun, pipeline en modo dry-run (solo análisis, sin escribir outputs) | Crea job; nunca ejecuta pipeline (status=ready, sin runJob) |
+
+- **autoRun**: controla si el watcher dispara `runJob` automáticamente al detectar transcript/media. En POST /v1/jobs, por defecto se usa el autoRun del perfil cuando runMode=auto; si runMode=manual el default es false.
+- **runMode**: `auto` = comportamiento por defecto; `manual` = jobs creados quedan en cola hasta que se llame POST /v1/jobs/:id/run; `dry-run` = solo análisis (STT + chapters/segments/markers), sin escribir archivos de resultado ni reframe/normalize.
+- Referencia: `server/src/config.js`, `server/src/watch.js`, `server/src/index.js`, `server/src/pipeline.js`.
+
 ## Ubicacion y precedence
 - `config/default.json` (versionado)
 - `config/local.json` (override local, no se commitea)

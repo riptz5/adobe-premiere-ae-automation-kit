@@ -140,7 +140,7 @@ Deliverables (Markdown):
 1) Plan (numbered steps)
 2) Files to touch (with brief intent)
 3) Risks/edge cases
-4) How to verify (commands/tests)
+4) How to verify (commands or tests)
 EOF
 )
 

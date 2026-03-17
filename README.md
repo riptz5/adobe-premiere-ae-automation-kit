@@ -22,6 +22,16 @@ Esto es un *starter kit* (monorepo) para automatizar flujos reales entre:
 
 ---
 
+## Un solo comando (arrancar todo y abrir dashboard)
+
+```bash
+./go.sh
+```
+
+Libera el puerto 8787, instala dependencias del servidor, arranca Ollama (si está instalado) y el servidor, espera a que responda y abre el navegador en el dashboard. Para parar: `./scripts/stop_autokit.sh`.
+
+---
+
 ## 1) Quick start: servidor LLM/orquestación
 
 ```bash
@@ -37,11 +47,13 @@ npm run dev
 - Job outputs: `GET /v1/jobs/:id/result`, `GET /v1/jobs/:id/markers`
 - More outputs: `GET /v1/jobs/:id/segments`, `GET /v1/jobs/:id/chapters`, `GET /v1/jobs/:id/summary`
 - QA: `GET /v1/jobs/:id/qa`, `POST /v1/qa/analyze`
+- QA markers (silence/black): `GET /v1/jobs/:id/qa-markers`
 - Audio normalize: `POST /v1/audio/normalize`
 - Config local: `GET /v1/config/local`, `POST /v1/config/local`
 - Scene detect: `GET /v1/jobs/:id/scenes`, `POST /v1/scene/detect`
 - B-roll suggest: `GET /v1/jobs/:id/broll`, `POST /v1/broll/suggest`
 - Reframe: `GET /v1/jobs/:id/reframe`, `POST /v1/reframe`
+- Music mode (FFmpeg, sin transcript): `POST /v1/music/analyze`
 - Config: `GET /v1/config`, `GET /v1/config/profiles`
 - Probe media: `POST /v1/ingest/probe` (requiere `ffprobe`)
 - Jobs desde media: `POST /v1/jobs` con `mediaPath` (requiere STT local)
@@ -51,6 +63,7 @@ Config local:
 - Overrides locales (no commitear): `config/local.json`
 - Perfiles: `config/profiles/*.json`
 - Resultados: `server/data/results`
+- Tabla runMode × autoRun (watcher vs API): ver `notes/configuration.md`.
 
 Dashboard local:
 - Abre `http://localhost:8787/` para crear jobs, ver resultados y markers.
@@ -79,6 +92,13 @@ Run/Stop local:
 ./scripts/stop_autokit.sh
 ```
 
+Autostart (macOS, opcional):
+```bash
+bash scripts/install_autostart_macos.sh
+# para desinstalar:
+bash scripts/uninstall_autostart_macos.sh
+```
+
 CLI local:
 ```bash
 cd server
@@ -86,6 +106,14 @@ node src/cli.js analyze --file ../examples/sample_transcript.vtt --no-llm
 node src/cli.js job --file ../examples/sample_transcript.vtt --no-llm
 node src/cli.js job --media /path/video.mp4
 ```
+
+Music mode (audio-first, sin transcript):
+```bash
+curl -sS -X POST http://localhost:8787/v1/music/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"path":"/path/musica.wav","profile":"shorts"}'
+```
+Outputs en `server/data/results`: `*.music.json`, `*.waveform.png`, `*.spectrogram.png`.
 
 ---
 
@@ -104,6 +132,7 @@ El panel:
 - Importa/organiza media
 - Aplica markers desde JSON (capítulos/highlights)
 - Analiza media (STT + LLM local) y aplica markers directo a la secuencia
+- Analiza música (FFmpeg) y aplica markers de QA + beats/secciones (sin transcript)
 - Exporta via Media Encoder
 - (Opcional) sube export a Frame.io
 
@@ -167,7 +196,14 @@ Carpeta: `photoshop/extendscript`
 
 ## 8) Multi-agent (paralelo, open source listo)
 
-Si necesitas cumplir “nunca codifiques solo”, lanza 3 agentes en paralelo (planner/implementer/reviewer) con este script (sin dependencias extra):
+Flujo recomendado (**MULTIAGENT FROM MOMENT ZERO**, ver `AGENTS.md`):
+
+1. **Planner + Implementer + Reviewer en paralelo** para cualquier cambio no trivial.
+2. Opcionalmente, usa el flujo `nowiswhen` (Planner + Reviewer → Implementer → Reviewer final) para cambios grandes.
+
+### 8.1) Trio rápido (planner/implementer/reviewer)
+
+Si necesitas cumplir “nunca codifiques solo”, lanza 3 agentes en paralelo con este script (sin dependencias extra):
 
 ```bash
 # 3 agentes en paralelo y proveedor OSS (opcional)
@@ -178,13 +214,29 @@ Si necesitas cumplir “nunca codifiques solo”, lanza 3 agentes en paralelo (p
 - `--oss` usa proveedor open source configurado en Codex (`ollama`/`lmstudio`); quita el flag si prefieres tu proveedor actual.
 - Por defecto corre en `read-only`; ajusta con `--planner-sandbox/--impl-sandbox/--review-sandbox` si quieres permitir escritura.
 
-Si quieres un flujo con handoff (Planner + Reviewer en paralelo → Implementer consume ambos):
+### 8.2) Flujo `nowiswhen` (handoff completo)
+
+Si quieres un flujo con handoff (Planner + Reviewer en paralelo → Implementer consume ambos → Reviewer final opcional):
 
 ```bash
 ./scripts/nowiswhen.sh --task "Revisa el repo, sugiere mejoras y aplica cambios mínimos" --implement --final-review --oss --local-provider ollama
 ```
 
-Regla completa y guía: `AGENTS.md`.
+### 8.3) Dónde ver los resultados
+
+- `scripts/run_codex_trio.sh` → `.codex-agents/<timestamp>/{planner,implementer,reviewer}.{md,log}`
+- `scripts/nowiswhen.sh` → `notes/multi-agent/<timestamp>/` con:
+  - `task.txt`
+  - `planner.md`, `reviewer.md`
+  - `implementer_input.md`, `implementer.md` (si `--implement`)
+  - `final_review.md` (si `--final-review`)
+
+Regla completa y guía: `AGENTS.md`. Ejemplos de prompts por tarea: `notes/multi-agent-prompts.example.txt`. Sesiones de ejemplo y decisiones: `notes/multi-agent/`.
+
+### 8.4) Presets de tarea (nowiswhen)
+
+- Cerrar release: `./scripts/nowiswhen.sh --task "Cerrar v1.0.0-local-first siguiendo notes/release-checklist.md" --implement --final-review`
+- Nueva feature dashboard: `./scripts/nowiswhen.sh --task "Añadir panel X al dashboard vanilla y Next" --implement`
 
 ## Contribuir
 Ver `CONTRIBUTING.md`.

@@ -26,14 +26,16 @@
 
   app.displayDialogs = DialogModes.NO;
   try {
-    var jsonFile = File.openDialog("Elige result JSON", "*.json");
+    var jsonFile = File.openDialog("Elige result JSON (server result.json o GET /v1/jobs/:id/result)", "*.json");
     if (!jsonFile) throw new Error("Cancelado.");
     var payload = JSON.parse(readFile(jsonFile.fsName));
-    if (!payload || (!payload.summary && !payload.highlights)) throw new Error("JSON sin summary/highlights.");
+    // Accept top-level summary/highlights or job result shape (result.summary, result.highlights)
+    var result = payload.result || payload;
+    if (!result || (!result.summary && !result.highlights)) throw new Error("JSON sin summary ni highlights (esperado: result.json del server o { result: { summary, highlights } }).");
 
     var doc = ensureDoc();
-    var summary = payload.summary || "No summary.";
-    var highlights = payload.highlights || [];
+    var summary = result.summary || "No summary.";
+    var highlights = result.highlights || [];
     var lines = [];
     for (var i = 0; i < highlights.length; i++) {
       lines.push("- " + (highlights[i].label || ("Highlight " + (i + 1))));

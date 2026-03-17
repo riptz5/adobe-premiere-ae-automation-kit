@@ -80,6 +80,32 @@ function parseLoudness(stderr) {
   return { integrated, lra, maxVolume, meanVolume };
 }
 
+function parseEbur128Timeline(stderr, { minStepSec = 0.5, maxFrames = 20000 } = {}) {
+  const frames = [];
+  const re = /t:\s*([0-9.]+).*?\bM:\s*(-?[0-9.]+).*?\bS:\s*(-?[0-9.]+).*?\bI:\s*(-?[0-9.]+).*?\bLUFS.*?\bLRA:\s*(-?[0-9.]+)\s*LU/g;
+  let match;
+  let lastT = -Infinity;
+  while ((match = re.exec(stderr))) {
+    const t = Number(match[1]);
+    if (!Number.isFinite(t)) continue;
+    if (t - lastT < minStepSec) continue;
+    const m = Number(match[2]);
+    const s = Number(match[3]);
+    const i = Number(match[4]);
+    const lra = Number(match[5]);
+    frames.push({
+      t,
+      M: Number.isFinite(m) ? m : null,
+      S: Number.isFinite(s) ? s : null,
+      I: Number.isFinite(i) ? i : null,
+      LRA: Number.isFinite(lra) ? lra : null
+    });
+    lastT = t;
+    if (frames.length >= maxFrames) break;
+  }
+  return frames;
+}
+
 export async function analyzeMedia(mediaPath, config) {
   const silenceThreshold = config.qa?.silenceThresholdDb ?? -40;
   const silenceMin = config.qa?.silenceMinSec ?? 1.0;
@@ -99,7 +125,10 @@ export async function analyzeMedia(mediaPath, config) {
 
   const silence = parseSilence(result.stderr);
   const black = parseBlack(result.stderr);
-  const loudness = parseLoudness(result.stderr);
+  const loudness = {
+    ...parseLoudness(result.stderr),
+    timeline: parseEbur128Timeline(result.stderr, { minStepSec: 0.5 })
+  };
 
   let timeStats = null;
   let spectralStats = null;
@@ -182,25 +211,56 @@ function parseAstats(stderr) {
   const lines = stderr.split(/\r?\n/);
   const channels = new Map();
   const overall = {};
-  const channelRe = /Channel\s+(\d+)\s+(.+?):\s*([-0-9.]+)/i;
-  const overallRe = /Overall\s+(.+?):\s*([-0-9.]+)/i;
+
+  let currentKind = null; // "channel" | "overall"
+  let currentChannel = null;
+
+  const prefixRe = /^\[Parsed_astats_\d+\s+@\s+[^\]]+\]\s*/;
+  const channelStartRe = /^Channel:\s*(\d+)\s*$/i;
+  const overallStartRe = /^Overall\s*$/i;
+  const kvRe = /^(.+?):\s*(.+)\s*$/;
+
+  const coerceValue = (raw) => {
+    const value = String(raw).trim();
+    if (!value) return null;
+    if (/^(nan|-nan)$/i.test(value)) return null;
+    if (/^[-+]?(?:\d+\.?\d*|\d*\.?\d+)(?:e[-+]?\d+)?$/i.test(value)) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+    return value;
+  };
+
   for (const line of lines) {
-    let m = channelRe.exec(line);
-    if (m) {
-      const ch = Number(m[1]);
-      const key = m[2].trim();
-      const val = Number(m[3]);
-      if (!channels.has(ch)) channels.set(ch, {});
-      channels.get(ch)[key] = val;
+    const cleaned = String(line).replace(prefixRe, "").trim();
+    if (!cleaned) continue;
+
+    const channelMatch = channelStartRe.exec(cleaned);
+    if (channelMatch) {
+      currentKind = "channel";
+      currentChannel = Number(channelMatch[1]);
+      if (!channels.has(currentChannel)) channels.set(currentChannel, {});
       continue;
     }
-    m = overallRe.exec(line);
-    if (m) {
-      const key = m[1].trim();
-      const val = Number(m[2]);
-      overall[key] = val;
+
+    if (overallStartRe.test(cleaned)) {
+      currentKind = "overall";
+      currentChannel = null;
+      continue;
+    }
+
+    const kvMatch = kvRe.exec(cleaned);
+    if (!kvMatch) continue;
+    const key = kvMatch[1].trim();
+    const value = coerceValue(kvMatch[2]);
+
+    if (currentKind === "channel" && currentChannel != null) {
+      channels.get(currentChannel)[key] = value;
+    } else if (currentKind === "overall") {
+      overall[key] = value;
     }
   }
+
   return {
     channels: Array.from(channels.entries()).map(([channel, stats]) => ({ channel, stats })),
     overall

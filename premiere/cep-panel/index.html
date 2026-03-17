@@ -13,11 +13,16 @@
     textarea { width: 100%; height: 140px; margin-top: 8px; border-radius: 10px; border: 1px solid #ccc; padding: 8px; }
     input, select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ccc; }
     .small { font-size: 12px; opacity: 0.75; }
+    .status-bar { padding: 6px 8px; background: #e8e8e8; border-radius: 8px; margin-bottom: 10px; }
+    .status-bar.fail { background: #ffd0d0; }
+    .inline-btn { width: auto; padding: 2px 8px; margin: 0 0 0 6px; }
     pre { white-space: pre-wrap; background: #111; color: #eee; padding: 10px; border-radius: 10px; }
   </style>
 </head>
 <body>
   <h1>AutoKit (Premiere CEP)</h1>
+
+  <div id="serverStatus" class="status-bar small">Server: — | Profile: — | runMode: — | autoRun: —</div>
 
   <div class="small">Servidor (LLM/orquestación) URL</div>
   <input id="serverUrl" value="http://localhost:8787" />
@@ -33,15 +38,34 @@
   </div>
 
   <button id="btnImportAndOrganize">Importar & organizar media (elige carpeta)</button>
-  <button id="btnApplyMarkersFromJSON">Aplicar markers (pega JSON abajo)</button>
 
-  <button id="btnAnalyzeTranscript">Analizar transcript (VTT o texto) -> markers</button>
+  <div class="small" style="margin-top:12px; font-weight:600;">Transcript → Markers</div>
+  <button id="btnAnalyzeTranscript">Analizar transcript (VTT o texto) → markers</button>
   <textarea id="transcript" placeholder="Pega transcript (VTT recomendado)"></textarea>
 
-  <textarea id="markersJson" placeholder="Pega JSON con {markers:[{timeSec,name,comment,type}] }"></textarea>
+  <div class="small" style="margin-top:12px; font-weight:600;">Media → Markers + Segments</div>
+  <button id="btnAnalyzeMediaApply">Analizar media (STT+LLM) → markers + segments</button>
 
-  <button id="btnAnalyzeMediaApply">Analizar media (STT+LLM) -> markers + auto edit</button>
-  <button id="btnApplySegments">Aplicar segments (keep/remove) a la secuencia</button>
+  <div class="small" style="margin-top:12px; font-weight:600;">Music → Markers (beats/sections/drops)</div>
+  <button id="btnAnalyzeMusicApply">Analizar música (FFmpeg) → markers</button>
+
+  <div class="small" style="margin-top:12px; font-weight:600;">Segments (keep/remove)</div>
+  <button id="btnApplySegments">Aplicar segments a la secuencia</button>
+
+  <div class="small" style="margin-top:12px; font-weight:600;">QA / Scenes / Job summary desde Job ID</div>
+  <div class="row" style="flex-wrap:wrap;">
+    <input id="jobIdInput" placeholder="Job ID (ej. uuid)" style="flex:1; min-width:120px;" />
+    <button id="btnFetchQaMarkers">QA markers</button>
+    <button id="btnFetchScenes">Scenes</button>
+    <button id="btnFetchJobSummary">Job summary</button>
+    <button id="btnCopyJobId">Copy Job ID</button>
+  </div>
+  <div id="jobSummaryBox" class="small" style="display:none; margin-top:6px; padding:8px; background:#f0f0f0; border-radius:8px;"></div>
+  <div id="lastJobBar" class="small" style="margin-top:6px; display:none;">Último job: <span id="lastJobId"></span> <button id="btnCopyLastJobId" class="inline-btn">Copy</button></div>
+
+  <div class="small" style="margin-top:12px; font-weight:600;">Markers JSON (Transcript | Media | Music | QA)</div>
+  <button id="btnApplyMarkersFromJSON">Aplicar markers (usa JSON de abajo)</button>
+  <textarea id="markersJson" placeholder='{ "markers": [ { "timeSec": 0, "name": "...", "comment": "...", "type": "chapter" } ] }'></textarea>
 
   <div class="row">
     <button id="btnExportAME">Export via Media Encoder</button>

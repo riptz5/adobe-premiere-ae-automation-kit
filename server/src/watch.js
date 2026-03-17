@@ -99,7 +99,7 @@ async function handleTranscriptFile(filePath, folderMeta, config, state) {
       mtimeMs: stats.mtimeMs
     }
   });
-
+  job.runMode = config.runMode ?? "auto";
   await writeJob(job, config);
 
   const autoRun = folderMeta.autoRun ?? config.autoRun;
@@ -133,7 +133,7 @@ async function handleMediaFile(filePath, folderMeta, config, state) {
       mtimeMs: stats.mtimeMs
     }
   });
-
+  job.runMode = config.runMode ?? "auto";
   await writeJob(job, config);
 
   const autoRun = folderMeta.autoRun ?? config.autoRun;

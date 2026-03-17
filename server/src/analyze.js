@@ -90,6 +90,17 @@ function buildSystemPrompt(config) {
   ].join("\n");
 }
 
+function stripFillers(text, config, override) {
+  const enabled = typeof override === "boolean" ? override : config.analyze?.removeFillers;
+  if (!enabled || !text) return text;
+  const fillers = config.analyze?.fillers && config.analyze.fillers.length
+    ? config.analyze.fillers
+    : ["um", "uh", "erm", "eh", "mmm", "like", "you know", "i mean", "este", "ehh", "mmm", "osea", "o sea", "vale"];
+  const escaped = fillers.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
+  return text.replace(pattern, " ").replace(/\s+/g, " ").trim();
+}
+
 async function runLLM(input, config) {
   if (!config.llm?.enabled || !config.features?.useLLM) return null;
 
@@ -268,9 +279,16 @@ export async function analyzeTranscript(input, config) {
   const transcript = input.transcript?.trim() || "";
   if (!transcript) throw new Error("Transcript is required");
 
-  const cues = isVtt(transcript) ? parseVttToCues(transcript) : [{ start: 0, end: 0, text: transcript }];
+  const effectiveTranscript = stripFillers(transcript, config, input.removeFillers);
+  const rawCues = isVtt(transcript)
+    ? parseVttToCues(transcript)
+    : [{ start: 0, end: 0, text: transcript }];
+  const cues = rawCues.map((c) => ({
+    ...c,
+    text: stripFillers(c.text, config, input.removeFillers)
+  }));
 
-  const llmResult = await runLLM({ transcript }, config);
+  const llmResult = await runLLM({ transcript: effectiveTranscript }, config);
   let chapters = [];
   let highlights = [];
   let segments = [];

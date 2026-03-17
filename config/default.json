@@ -82,6 +82,24 @@
     "blackMinSec": 0.2,
     "spectral": true
   },
+  "music": {
+    "enabled": true,
+    "beat": {
+      "minGapSec": 0.28,
+      "thresholdPctl": 92,
+      "max": 400
+    },
+    "sections": {
+      "minGapSec": 12,
+      "windowSec": 4,
+      "deltaDb": 4,
+      "dropDeltaDb": 6
+    },
+    "assets": {
+      "waveformSize": "1400x280",
+      "spectrogramSize": "1400x560"
+    }
+  },
   "watch": {
     "enabled": false,
     "folders": [
@@ -125,10 +143,22 @@
     "apiMesh": {
       "enabled": false,
       "baseUrl": ""
+    },
+    "oss": {
+      "otioEnabled": true,
+      "blenderPath": "/Applications/Blender.app/Contents/MacOS/Blender",
+      "reaperPath": "/Applications/REAPER64.app/Contents/MacOS/REAPER",
+      "kdenlivePresetPath": "",
+      "natronTemplatesDir": "",
+      "timelineResultDir": "server/data/results",
+      "debugMode": false
     }
   },
   "render": {
     "presetPath": "",
     "outputDir": ""
+  },
+  "timeline": {
+    "fps": 25
   }
 }

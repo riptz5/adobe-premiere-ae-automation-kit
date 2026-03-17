@@ -26,7 +26,24 @@ const ConfigSchema = z.object({
   }).default({}),
   analyze: z.object({
     chapterTargetSec: z.number().int().positive().default(120),
-    highlightMax: z.number().int().positive().default(5)
+    highlightMax: z.number().int().positive().default(5),
+    removeFillers: z.boolean().default(false),
+    fillers: z.array(z.string()).default([
+      "um",
+      "uh",
+      "erm",
+      "eh",
+      "mmm",
+      "like",
+      "you know",
+      "i mean",
+      "este",
+      "ehh",
+      "mmm",
+      "osea",
+      "o sea",
+      "vale"
+    ])
   }).default({}),
   llm: z.object({
     enabled: z.boolean().default(true),
@@ -66,6 +83,9 @@ const ConfigSchema = z.object({
     presetPath: z.string().default(""),
     outputDir: z.string().default("")
   }).default({}),
+  timeline: z.object({
+    fps: z.number().default(25)
+  }).default({}),
   integrations: z.object({
     frameio: z.object({
       enabled: z.boolean().default(false),
@@ -80,6 +100,15 @@ const ConfigSchema = z.object({
     apiMesh: z.object({
       enabled: z.boolean().default(false),
       baseUrl: z.string().default("")
+    }).default({}),
+    oss: z.object({
+      otioEnabled: z.boolean().default(true),
+      blenderPath: z.string().default(""),
+      reaperPath: z.string().default(""),
+      kdenlivePresetPath: z.string().default(""),
+      natronTemplatesDir: z.string().default(""),
+      timelineResultDir: z.string().default(""),
+      debugMode: z.boolean().default(false)
     }).default({})
   }).default({}),
   broll: z.object({
@@ -114,6 +143,24 @@ const ConfigSchema = z.object({
     blackThreshold: z.number().default(0.1),
     blackMinSec: z.number().default(0.2),
     spectral: z.boolean().default(true)
+  }).default({}),
+  music: z.object({
+    enabled: z.boolean().default(true),
+    beat: z.object({
+      minGapSec: z.number().min(0).default(0.28),
+      thresholdPctl: z.number().min(0).max(100).default(92),
+      max: z.number().int().positive().default(400)
+    }).default({}),
+    sections: z.object({
+      minGapSec: z.number().min(0).default(12),
+      windowSec: z.number().min(0).default(4),
+      deltaDb: z.number().min(0).default(4),
+      dropDeltaDb: z.number().min(0).default(6)
+    }).default({}),
+    assets: z.object({
+      waveformSize: z.string().default("1400x280"),
+      spectrogramSize: z.string().default("1400x560")
+    }).default({})
   }).default({}),
   watch: z.object({
     enabled: z.boolean().default(false),
@@ -186,6 +233,10 @@ function resolvePaths(config) {
   const normalizedDir = resolvePath(config.audio?.outputDir || "server/data/normalized");
   const brollDir = resolvePath(config.broll?.libraryDir || "broll");
   const reframeDir = resolvePath(config.reframe?.outputDir || "server/data/reframe");
+  const timelineDir = resolvePath(config.integrations?.oss?.timelineResultDir || resultsDir);
+  const natronTemplatesDir = config.integrations?.oss?.natronTemplatesDir
+    ? resolvePath(config.integrations.oss.natronTemplatesDir)
+    : "";
 
   return {
     ...config,
@@ -197,7 +248,9 @@ function resolvePaths(config) {
       absResultsDir: resultsDir,
       absNormalizedDir: normalizedDir,
       absBrollDir: brollDir,
-      absReframeDir: reframeDir
+      absReframeDir: reframeDir,
+      absTimelineDir: timelineDir,
+      absNatronTemplatesDir: natronTemplatesDir
     }
   };
 }

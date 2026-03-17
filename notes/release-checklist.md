@@ -1,0 +1,37 @@
+### Release checklist v1.0.0-local-first
+
+- [ ] **Server**: `/health`, `/v1/config*`, `/v1/jobs*`, `/v1/analyze/transcript`, `/v1/qa/analyze`, `/v1/audio/normalize`, `/v1/scene/detect`, `/v1/broll/suggest`, `/v1/reframe`, `/v1/music/analyze`, `/v1/ingest/probe` responden OK en tu máquina.
+- [ ] **Dashboard vanilla** (`public/index.html`): puedes:
+  - [ ] Crear un job desde transcript y desde mediaPath.
+  - [ ] Ver markers/segments/chapters/summary/QA/QA markers/scenes/b-roll/reframe de un job.
+  - [ ] Usar media tools (QA, normalize, scene detect, reframe, music analyze, probe, b-roll suggest).
+  - [ ] Editar config vía UI avanzada (tabs) y `config/local.json` se actualiza.
+- [ ] **Dashboard Next.js** (`web/app/page.tsx`): consume los mismos endpoints y reproduce los flujos básicos (analyze, jobs, media tools).
+- [ ] **Premiere CEP panel**:
+  - [ ] Ping a `/health` funciona.
+  - [ ] Puedes analizar transcript y aplicar markers.
+  - [ ] Puedes crear job desde media y aplicar markers+segments.
+  - [ ] Music mode aplica markers de beats/sections/QA sobre una pista de audio.
+- [ ] **After Effects**:
+  - [ ] `generate_from_csv.jsx` funciona con un CSV de ejemplo.
+  - [ ] `apply_markers_from_json.jsx` aplica markers generados por el server.
+- [ ] **Photoshop**:
+  - [ ] `apply_summary.jsx` usa un `result.json` actual y genera capas de texto coherentes.
+- [ ] **Config/perfiles**:
+  - [ ] Perfiles `shorts`, `ads`, `longform`, `docu` existen y se cargan con `/v1/config/profiles`.
+  - [ ] Cambiar de perfil afecta a nuevos jobs según lo esperado.
+- [ ] **Music mode**:
+  - [ ] `/v1/music/analyze` genera JSON + waveform + spectrogram sin errores.
+  - [ ] Markers de music mode son consumibles por Premiere/AE.
+- [ ] **B-roll / scenes / reframe**:
+  - [ ] `broll` sugiere al menos algunos clips cuando hay librería.
+  - [ ] `scene` detecta cortes razonables en un clip de prueba.
+  - [ ] `reframe` genera al menos una versión 9:16 válida.
+- [ ] **Multiagente**:
+  - [ ] Has corrido al menos una vez `scripts/run_codex_trio.sh` sobre este repo para un cambio real.
+  - [ ] Has corrido al menos una vez `scripts/nowiswhen.sh --implement --final-review` para un batch de cambios.
+  - [ ] Los artefactos de multiagente están guardados en `.codex-agents/` y `notes/multi-agent/` para referencia.
+- [ ] **Docs**:
+  - [ ] `README.md` describe el flujo de instalación y uso end-to-end.
+  - [ ] `docs/docs-index.md`, `docs/data-contracts.md`, `docs/architecture.md`, `docs/implementation-plan.md`, `notes/ideas-18-selected.md`, `notes/master-backlog.md` están actualizados.
+

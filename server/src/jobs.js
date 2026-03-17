@@ -26,7 +26,7 @@ export async function readJob(id, config) {
   return JSON.parse(raw);
 }
 
-export async function listJobs(config, limit = 50) {
+export async function listJobs(config, limit = 50, sinceDays = null) {
   const files = await fs.readdir(config.paths.absJobsDir);
   const jobs = [];
   for (const file of files) {
@@ -37,6 +37,15 @@ export async function listJobs(config, limit = 50) {
     } catch {
       continue;
     }
+  }
+  if (sinceDays != null && Number.isFinite(sinceDays) && sinceDays > 0) {
+    const cutoff = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+    const filtered = jobs.filter((j) => {
+      const t = new Date(j.updatedAt || j.createdAt).getTime();
+      return t >= cutoff;
+    });
+    filtered.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+    return filtered.slice(0, limit);
   }
   jobs.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
   return jobs.slice(0, limit);
