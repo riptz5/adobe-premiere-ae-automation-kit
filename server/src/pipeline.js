@@ -11,6 +11,7 @@ import { qaToMarkers } from "./qa.js";
 import { logJob } from "./logger.js";
 import { recordPhase } from "./metrics.js";
 import { writeTimelineOutputs } from "./output_otio.js";
+import { generateRppForJob } from "./reaper.js";
 
 export async function runJob(job, config) {
   const runStart = Date.now();
@@ -142,6 +143,22 @@ export async function runJob(job, config) {
     if (timelineOut) {
       job.outputs = { ...(job.outputs || {}), timelinePath: timelineOut.timelinePath, otioPath: timelineOut.otioPath };
       addJobEvent(job, "timeline", "Timeline contract written");
+    }
+
+    // Auto-generate Reaper .rpp if reaperPath or pythonPath is configured
+    const ossConfig = config.integrations?.oss || {};
+    if (ossConfig.reaperPath || ossConfig.pythonPath || ossConfig.otioEnabled) {
+      try {
+        const rppResult = await generateRppForJob(job, config);
+        if (rppResult.ok) {
+          job.outputs = { ...(job.outputs || {}), rppPath: rppResult.rppPath };
+          addJobEvent(job, "reaper", `Reaper .rpp written: ${rppResult.rppPath}`);
+        } else {
+          addJobEvent(job, "reaper", `Reaper .rpp skipped: ${rppResult.error}`);
+        }
+      } catch (err) {
+        addJobEvent(job, "reaper", `Reaper step error: ${err.message}`);
+      }
     }
 
     // Contract en docs/data-contracts.md: status final esperado = "ready"

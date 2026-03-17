@@ -86,22 +86,50 @@ async function resolveWhisperCommand(config) {
   return candidates[0] || "whisper-cli";
 }
 
+function buildFasterWhisperArgs(inputPath, config, outputDir) {
+  // faster-whisper CLI: faster-whisper <file> --model <size> --output_dir <dir> --output_format vtt
+  const model = config.stt.modelPath || config.stt.modelSize || "small";
+  const lang = normalizeLang(config.stt.language);
+  const args = [inputPath, "--model", model, "--output_dir", outputDir, "--output_format", "vtt"];
+  if (lang) args.push("--language", lang);
+  if (config.stt.vad) args.push("--vad_filter", "true");
+  return args;
+}
+
+async function readFasterWhisperOutput(outputDir, inputPath) {
+  // faster-whisper names output after the input file stem
+  const stem = path.basename(inputPath, path.extname(inputPath));
+  const vttPath = path.join(outputDir, `${stem}.vtt`);
+  const transcript = await fs.readFile(vttPath, "utf8");
+  return { transcript, filePath: vttPath, ext: "vtt" };
+}
+
 export async function runStt(mediaPath, config) {
-  const command = await resolveWhisperCommand(config);
   const outputDir = path.join(config.paths.absDataDir, "stt");
   await fs.mkdir(outputDir, { recursive: true });
 
   const timeoutMs = 20 * 60 * 1000;
-  let args = [];
-  if (config.stt.engine === "whisper.cpp") {
-    if (!config.stt.modelPath) {
-      return { ok: false, error: "Missing stt.modelPath for whisper.cpp" };
+  const engine = config.stt.engine || "whisper.cpp";
+
+  if (engine === "faster-whisper") {
+    const command = "faster-whisper";
+    const args = buildFasterWhisperArgs(mediaPath, config, outputDir);
+    const result = await runProcess(command, args, timeoutMs);
+    if (!result.ok) return result;
+    try {
+      const output = await readFasterWhisperOutput(outputDir, mediaPath);
+      return { ok: true, transcript: output.transcript, transcriptPath: output.filePath, transcriptExt: output.ext };
+    } catch (err) {
+      return { ok: false, error: "Failed to read faster-whisper output" };
     }
-    args = buildWhisperArgs(mediaPath, config, outputDir);
-  } else {
-    return { ok: false, error: "Unsupported STT engine" };
   }
 
+  // Default: whisper.cpp
+  const command = await resolveWhisperCommand(config);
+  if (!config.stt.modelPath) {
+    return { ok: false, error: "Missing stt.modelPath for whisper.cpp. Set it in config or stt.modelPath." };
+  }
+  const args = buildWhisperArgs(mediaPath, config, outputDir);
   const result = await runProcess(command, args, timeoutMs);
   if (!result.ok) return result;
 
