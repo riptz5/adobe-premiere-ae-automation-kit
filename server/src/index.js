@@ -24,13 +24,22 @@ import { buildTimelineContract, timelineToOtio } from "./timeline/contract.js";
 import { writeTimelineOutputs } from "./output_otio.js";
 
 const app = express();
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:8787";
 app.use((_req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Api-Key");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   if (_req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+
+function requireAdminKey(req, res, next) {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) return next(); // no key configured — allow (dev mode)
+  const provided = req.headers["x-api-key"] || req.query.apiKey;
+  if (provided !== adminKey) return res.status(401).json({ ok: false, error: "Unauthorized" });
+  next();
+}
 app.use(express.json({ limit: "20mb" }));
 app.use(morgan("dev"));
 
@@ -205,7 +214,7 @@ app.get("/v1/config/local", async (_req, res) => {
   }
 });
 
-app.post("/v1/config/local", async (req, res) => {
+app.post("/v1/config/local", requireAdminKey, async (req, res) => {
   try {
     const payload = req.body;
     if (!payload || typeof payload !== "object") {

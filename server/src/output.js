@@ -28,7 +28,6 @@ export async function writeJobOutputs(job, config) {
   let brollPath = null;
   let reframePath = null;
   let sceneSegmentsPath = null;
-  let qaMarkersPath = null;
 
   if (output.writeResult) {
     const filePath = path.join(dir, `${baseName}.result.json`);
@@ -103,7 +102,6 @@ export async function writeJobOutputs(job, config) {
     scenesPath,
     sceneSegmentsPath,
     brollPath,
-    reframePath,
-    qaMarkersPath
+    reframePath
   };
 }

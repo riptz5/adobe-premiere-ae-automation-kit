@@ -1,3 +1,36 @@
+name: AI Agent Dev Orchestrator
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  feature_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Auditar Issue (sin ramas nuevas)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          echo "Issue Body:" > ISSUE_BODY.txt
+          echo "${{ github.event.issue.body }}" >> ISSUE_BODY.txt
+          echo "Audit: Política main-only. No se creará ninguna rama nueva. Issue body guardado localmente."
+        shell: bash
+
+      # No comentar en el issue para evitar notificaciones
+
       - name: Procesar Issue y commitear en main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,39 +64,6 @@
             fi
             sleep $((RANDOM % 5 + 1))
           done
-          COMMIT_SHA=$(git rev-parse HEAD)
           # Cerrar issue sin comentario para evitar notificaciones
           gh issue close "$ISSUE_NUMBER"
         shell: bash
-name: AI Agent Dev Orchestrator
-
-on:
-  issues:
-    types: [opened, edited]
-
-jobs:
-  feature_branch:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install GitHub CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
-
-      - name: Auditar Issue (sin ramas nuevas)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          ISSUE_NUMBER=${{ github.event.issue.number }}
-          echo "Issue Body:" > ISSUE_BODY.txt
-          echo "${{ github.event.issue.body }}" >> ISSUE_BODY.txt
-          echo "Audit: Política main-only. No se creará ninguna rama nueva. Issue body guardado localmente."
-        shell: bash
-
-      # No comentar en el issue para evitar notificaciones

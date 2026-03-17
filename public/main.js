@@ -51,8 +51,8 @@ function renderJobStudioContent(job, tabId) {
   if (!el) return;
   if (tabId === "overview") {
     const parts = [];
-    parts.push("Status: " + job.status + " · Profile: " + (job.profile || "—"));
-    if (job.result?.summary) parts.push("\nSummary: " + job.result.summary);
+    parts.push("Status: " + escapeHtml(job.status) + " · Profile: " + escapeHtml(job.profile || "—"));
+    if (job.result?.summary) parts.push("\nSummary: " + escapeHtml(job.result.summary));
     const counts = [];
     if (job.result?.chapters?.length) counts.push("Chapters: " + job.result.chapters.length);
     if (job.result?.segments?.length) counts.push("Segments: " + job.result.segments.length);
@@ -67,13 +67,13 @@ function renderJobStudioContent(job, tabId) {
     return;
   }
   if (tabId === "result") {
-    el.innerHTML = "<pre style='margin:0; white-space:pre-wrap;'>" + JSON.stringify(job.result || {}, null, 2) + "</pre>";
+    el.innerHTML = "<pre style='margin:0; white-space:pre-wrap;'>" + escapeHtml(JSON.stringify(job.result || {}, null, 2)) + "</pre>";
     return;
   }
   if (tabId === "chapters" && job.result?.chapters?.length) {
     let html = "<table class='job-studio-table'><thead><tr><th>Start</th><th>End</th><th>Title</th></tr></thead><tbody>";
     job.result.chapters.forEach((ch) => {
-      html += "<tr><td>" + formatTime(ch.start) + "</td><td>" + formatTime(ch.end) + "</td><td>" + (ch.title || "—") + "</td></tr>";
+      html += "<tr><td>" + formatTime(ch.start) + "</td><td>" + formatTime(ch.end) + "</td><td>" + escapeHtml(ch.title || "—") + "</td></tr>";
     });
     html += "</tbody></table>";
     el.innerHTML = html;
@@ -82,7 +82,7 @@ function renderJobStudioContent(job, tabId) {
   if (tabId === "segments" && job.result?.segments?.length) {
     let html = "<table class='job-studio-table'><thead><tr><th>Start</th><th>End</th><th>Label</th><th>Action</th></tr></thead><tbody>";
     job.result.segments.forEach((sg) => {
-      html += "<tr><td>" + formatTime(sg.start) + "</td><td>" + formatTime(sg.end) + "</td><td>" + (sg.label || "—") + "</td><td>" + (sg.action || "keep") + "</td></tr>";
+      html += "<tr><td>" + formatTime(sg.start) + "</td><td>" + formatTime(sg.end) + "</td><td>" + escapeHtml(sg.label || "—") + "</td><td>" + escapeHtml(sg.action || "keep") + "</td></tr>";
     });
     html += "</tbody></table>";
     el.innerHTML = html;
@@ -91,7 +91,7 @@ function renderJobStudioContent(job, tabId) {
   if (tabId === "markers" && job.result?.markers?.length) {
     let html = "<table class='job-studio-table'><thead><tr><th>Time</th><th>Name</th><th>Type</th><th>Comment</th></tr></thead><tbody>";
     job.result.markers.forEach((m) => {
-      html += "<tr><td>" + formatTime(m.timeSec) + "</td><td>" + (m.name || "—") + "</td><td>" + (m.type || "—") + "</td><td>" + (m.comment || "—") + "</td></tr>";
+      html += "<tr><td>" + formatTime(m.timeSec) + "</td><td>" + escapeHtml(m.name || "—") + "</td><td>" + escapeHtml(m.type || "—") + "</td><td>" + escapeHtml(m.comment || "—") + "</td></tr>";
     });
     html += "</tbody></table>";
     el.innerHTML = html;
@@ -103,7 +103,7 @@ function renderJobStudioContent(job, tabId) {
     if (qa.silence?.length) text += "Silence: " + qa.silence.length + " events\n";
     if (qa.black?.length) text += "Black: " + qa.black.length + " events\n";
     if (qa.loudness) text += "Loudness I: " + (qa.loudness.integrated ?? "—") + " LRA: " + (qa.loudness.lra ?? "—") + " Max: " + (qa.loudness.maxVolume ?? "—") + "\n";
-    el.innerHTML = "<pre style='margin:0; white-space:pre-wrap;'>" + (text || "No QA data.") + "\n\n" + JSON.stringify(qa, null, 2) + "</pre>";
+    el.innerHTML = "<pre style='margin:0; white-space:pre-wrap;'>" + escapeHtml((text || "No QA data.") + "\n\n" + JSON.stringify(qa, null, 2)) + "</pre>";
     return;
   }
   if (tabId === "scenes") {
@@ -113,18 +113,18 @@ function renderJobStudioContent(job, tabId) {
     if (scenes.length) html += "<p>Cut points: " + scenes.map(formatTime).join(", ") + "</p>";
     if (segs.length) {
       html += "<table class='job-studio-table'><thead><tr><th>Start</th><th>End</th></tr></thead><tbody>";
-      segs.forEach((s) => { html += "<tr><td>" + formatTime(s.start) + "</td><td>" + formatTime(s.end) + "</td></tr>"; });
+      segs.forEach((s) => { html += "<tr><td>" + formatTime(s.start) + "</td><td>" + (s.end != null ? formatTime(s.end) : "—") + "</td></tr>"; });
       html += "</tbody></table>";
     }
     el.innerHTML = html || "<p class='muted'>No scenes.</p>";
     return;
   }
   if (tabId === "broll" && job.broll?.length) {
-    el.innerHTML = "<ul>" + job.broll.map((b) => "<li>" + b.path + " (score: " + b.score + ")</li>").join("") + "</ul>";
+    el.innerHTML = "<ul>" + job.broll.map((b) => "<li>" + escapeHtml(b.path) + " (score: " + escapeHtml(String(b.score)) + ")</li>").join("") + "</ul>";
     return;
   }
   if (tabId === "reframe" && job.reframed?.length) {
-    el.innerHTML = "<ul>" + job.reframed.map((r) => "<li>" + r.target + ": " + (r.ok ? (r.outputPath || "ok") : (r.error || "failed")) + "</li>").join("") + "</ul>";
+    el.innerHTML = "<ul>" + job.reframed.map((r) => "<li>" + escapeHtml(r.target) + ": " + (r.ok ? escapeHtml(r.outputPath || "ok") : escapeHtml(r.error || "failed")) + "</li>").join("") + "</ul>";
     return;
   }
   if (tabId === "music") {
@@ -323,7 +323,7 @@ function renderJob(job) {
   const div = document.createElement("div");
   div.className = "job";
   const title = document.createElement("div");
-  title.innerHTML = `<strong>${job.status}</strong> ${job.id}`;
+  title.innerHTML = `<strong>${escapeHtml(job.status)}</strong> ${escapeHtml(job.id)}`;
   const meta = document.createElement("div");
   meta.className = "muted";
   meta.textContent = `${job.profile || "default"} | ${job.createdAt || ""} | runMode=${job.runMode || "auto"}`;
@@ -375,7 +375,7 @@ function renderJobCard(job) {
   const card = document.createElement("div");
   card.className = "kanban-card";
   const title = document.createElement("div");
-  title.innerHTML = `<strong>${job.id.slice(0, 8)}</strong> · ${job.profile || "—"}`;
+  title.innerHTML = `<strong>${escapeHtml(job.id.slice(0, 8))}</strong> · ${escapeHtml(job.profile || "—")}`;
   const meta = document.createElement("div");
   meta.className = "muted";
   meta.textContent = job.createdAt || "";
@@ -636,6 +636,14 @@ function wireActions() {
   document.getElementById("loadConfigBtn").onclick = () => loadConfig().catch(err => setLog(document.getElementById("configOutput"), err.message));
   const studioClose = document.getElementById("jobStudioClose");
   if (studioClose) studioClose.onclick = () => { const w = document.getElementById("jobStudioWrap"); if (w) w.style.display = "none"; };
+  const toggleMoreBtn = document.getElementById("toggleMoreBtn");
+  const moreToolsWrap = document.getElementById("moreToolsWrap");
+  if (toggleMoreBtn && moreToolsWrap) {
+    toggleMoreBtn.onclick = () => {
+      const visible = moreToolsWrap.style.display !== "none";
+      moreToolsWrap.style.display = visible ? "none" : "";
+    };
+  }
 
   document.getElementById("qaBtn").onclick = () => {
     const mediaPath = document.getElementById("mediaToolsPath").value.trim();

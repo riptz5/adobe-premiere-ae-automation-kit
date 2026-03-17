@@ -241,38 +241,6 @@
       </section>
     </div>
 
-    <section class="card">
-      <div class="row" style="align-items:center; margin-bottom:8px;">
-        <div class="title" style="margin:0;">3 · Jobs y resultados</div>
-        <div class="row" style="justify-content:flex-end; gap:8px; width:100%; flex-wrap:wrap; align-items:center;">
-          <label class="muted" style="margin:0; font-size:11px;">Ver:</label>
-          <select id="jobsSinceFilter" style="width:auto; min-width:140px;">
-            <option value="7">Últimos 7 días</option>
-            <option value="30">Últimos 30 días</option>
-            <option value="">Todos</option>
-          </select>
-          <button class="secondary" id="jobsViewToggle" style="max-width:120px;">Ver Kanban</button>
-          <button id="refreshJobsBtn" style="max-width:140px;">Refresh</button>
-          <button class="secondary" id="loadConfigBtn" style="max-width:140px;">Load Config</button>
-        </div>
-      </div>
-      <div class="list" id="jobsList"></div>
-      <div id="jobsKanban" class="kanban-board" style="display:none;">
-        <div class="kanban-column" data-status="queued"><div class="kanban-title">Queued</div><div id="kanbanQueued" class="kanban-cards"></div></div>
-        <div class="kanban-column" data-status="running"><div class="kanban-title">Running</div><div id="kanbanRunning" class="kanban-cards"></div></div>
-        <div class="kanban-column" data-status="ready"><div class="kanban-title">Ready</div><div id="kanbanReady" class="kanban-cards"></div></div>
-        <div class="kanban-column" data-status="error"><div class="kanban-title">Error</div><div id="kanbanError" class="kanban-cards"></div></div>
-      </div>
-      <div id="jobStudioWrap" class="job-studio-wrap" style="display:none; margin-top:14px; border:2px solid rgba(34,211,238,0.4); border-radius:14px; background:#0d1625; overflow:hidden;">
-        <div class="row" style="justify-content:space-between; padding:10px 14px; background:#0b1220; border-bottom:1px solid var(--border);">
-          <span class="title" style="margin:0;">Job Studio · <span id="jobStudioId"></span></span>
-          <button class="secondary" id="jobStudioClose">Close</button>
-        </div>
-        <div class="tabs job-studio-tabs" id="jobStudioTabs"></div>
-        <div id="jobStudioContent" class="log" style="min-height:180px; max-height:55vh; margin:0; border-radius:0; border:none; border-top:1px solid var(--border);"></div>
-      </div>
-    </section>
-
     <div class="grid-2">
       <section class="card">
         <div class="title">4 · Media tools (QA, normalize, scenes, reframe, b-roll)</div>
@@ -333,16 +301,6 @@
         <div class="log" id="musicPanelRaw">...</div>
       </section>
 
-      <section class="card agent-chat-card">
-        <div class="title">4d · Agente</div>
-        <p class="muted" style="font-size:12px; margin-bottom:8px;">Orquestador con LLM: entiendo lo que pides y ejecuto todo (jobs, QA, retry, crear job, analizar transcript, etc.).</p>
-        <div id="agentMessages" class="agent-messages"></div>
-        <div class="agent-input-row">
-          <input id="agentInput" placeholder="Ej: reintenta el último job que falló / crea un job con /ruta/video.mp4..." autocomplete="off"/>
-          <button id="agentSendBtn">Enviar</button>
-        </div>
-      </section>
-
       <section class="card">
         <div class="title">5 · Config y perfiles</div>
         <div class="tabs" id="configTabs"></div>
@@ -365,6 +323,7 @@
         <div class="log" id="configEditorMessage">...</div>
       </section>
     </div>
+    </div><!-- /moreToolsWrap -->
 
     <section class="card">
       <div class="title">Snapshot config</div>

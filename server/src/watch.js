@@ -214,7 +214,7 @@ export async function startWatchers(config) {
     await fsp.mkdir(folderPath, { recursive: true });
     await scanFolder(folderMeta);
 
-    const watcher = fs.watch(folderPath, { recursive: false }, (_event, filename) => {
+    const watcher = fs.watch(folderPath, { recursive: true }, (_event, filename) => {
       if (!filename) return;
       schedule(path.join(folderPath, filename.toString()), folderMeta);
     });
