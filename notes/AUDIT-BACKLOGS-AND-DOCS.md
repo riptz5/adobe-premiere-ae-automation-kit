@@ -134,12 +134,12 @@
 
 ## 6. Checklist de consistencia (post-auditoría)
 
-- [ ] Actualizar `docs/docs-index.md` con los nuevos archivos listados en §5.1.
-- [ ] Ajustar `notes/issues.md` y `notes/STATUS.md` para que no contradigan el estado de master-backlog/release-checklist.completed.
-- [ ] Añadir `examples/ae/example.csv` y mencionarlo en `examples/ae/README.md`.
-- [ ] Resolver o anotar como obsoleto `ISSUE_DASHBOARD_ENDPOINTS.md`.
-- [ ] (Opcional) Crear `notes/my-ideal-flow.md` con el flujo recomendado de uso.
+- [x] Actualizar `docs/docs-index.md` con los nuevos archivos listados en §5.1. → **Hecho** (2026-03-17): índice completo con 40+ archivos organizados por categoría.
+- [x] Ajustar `notes/issues.md` y `notes/STATUS.md` para que no contradigan el estado de master-backlog/release-checklist.completed. → **Hecho** (2026-03-17): ambos reflejan v1.0 cerrado y apuntan a master-backlog consolidado.
+- [x] Añadir `examples/ae/example.csv` y mencionarlo en `examples/ae/README.md`. → **Hecho** (2026-03-17): CSV con 5 filas de ejemplo (profile, compName, title, subtitle, assetPath).
+- [x] Resolver o anotar como obsoleto `ISSUE_DASHBOARD_ENDPOINTS.md`. → **Hecho** (2026-03-17): marcado como OBSOLETO/CERRADO con checklist cerrado.
+- [x] (Opcional) Crear `notes/my-ideal-flow.md` con el flujo recomendado de uso. → **Ya existía** (creado previamente): flujo arranque → jobs → Premiere → AE/PS.
 
 ---
 
-**Conclusión**: El repo está alineado con el plan cerrar-backlog-autokit y con master-backlog para v1.0.0-local-first. Los backlogs y la mayoría de la documentación son coherentes con el código. Las principales deudas son: índice de docs desactualizado, issues/STATUS desfasados, ejemplo CSV para AE, y aclarar/cerrar el issue de endpoints dashboard.
+**Conclusión**: El repo está alineado con el plan cerrar-backlog-autokit y con master-backlog para v1.0.0-local-first. Los backlogs y la documentación son coherentes con el código. **Todas las deudas identificadas en §5 han sido resueltas** (2026-03-17): docs-index actualizado, issues/STATUS alineados, ejemplo CSV para AE añadido, ISSUE_DASHBOARD_ENDPOINTS cerrado, my-ideal-flow existente, y master-backlog consolidado con todos los ítems futuros organizados por prioridad.
