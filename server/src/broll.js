@@ -33,8 +33,24 @@ async function walk(dir, results) {
   }
 }
 
-export async function suggestBroll(text, config) {
-  const tokens = tokenize(text);
+/**
+ * Suggest b-roll clips for a given text query, optionally enriched with
+ * job context (summary, chapter titles) for better semantic matching.
+ *
+ * @param {string} text     - Base query text (segment label, caption, etc.)
+ * @param {object} config   - AutoKit config
+ * @param {object} [ctx]    - Optional context: { summary, chapters }
+ */
+export async function suggestBroll(text, config, ctx = {}) {
+  // build enriched query: base text + summary snippet + chapter titles
+  const parts = [text];
+  if (ctx.summary) parts.push(ctx.summary.slice(0, 200));
+  if (Array.isArray(ctx.chapters)) {
+    parts.push(ctx.chapters.map(ch => ch.title || "").join(" "));
+  }
+  const combined = parts.join(" ");
+
+  const tokens = tokenize(combined);
   if (!tokens.length) return { ok: true, items: [] };
   const libraryDir = config.paths.absBrollDir;
   let files = [];

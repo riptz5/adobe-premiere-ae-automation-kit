@@ -6,10 +6,13 @@ AutoKit → Reaper adapter (offline friendly).
 - Items follow segments; markers include QA/music/scene markers.
 - Ducking: adds a basic volume envelope on Music track using duckingCues/music markers.
 - Template support: can inject tracks/markers into a .RPP template.
+- Multicam: --multicam-media cam1,cam2,... creates one dialogue track per camera.
 
 Usage:
     python reaper_adapter.py --timeline timeline.json --rpp-out job.rpp
     python reaper_adapter.py --timeline timeline.json --template-rpp base.rpp --fxchain mix.RfxChain
+    python reaper_adapter.py --multicam-media cam1.mp4,cam2.mp4 --rpp-out multicam.rpp
+    python reaper_adapter.py --multicam-media cam1.mp4,cam2.mp4 --timeline timeline.json --rpp-out multicam.rpp
 """
 
 import argparse
@@ -99,6 +102,64 @@ def inject_into_template(template_text: str, payload: str) -> str:
     return template_text + "\n" + payload
 
 
+def build_multicam_rpp(media_paths: List[str], contract: Dict[str, Any] = None, fxchain_path: str = "") -> str:
+    """Build a multicam .rpp with one dialogue track per camera + shared Music/SFX."""
+    contract = contract or {}
+    markers: List[str] = []
+    for idx, m in enumerate((contract.get("markers") or []) + (contract.get("qaMarkers") or []) + (contract.get("musicMarkers") or [])):
+        markers.append(fmt_marker(idx + 1, m))
+
+    segments = contract.get("segments") or []
+
+    lines = ["<REAPER_PROJECT 0.1 \"Reaper v6\" 45 0 0",
+             "  RIPPLE 0",
+             "  GROUPOVERRIDE 0 0 0",
+             "  AUTOXFADE 1",
+             "  DEFPANLAW 1",
+             "  PROJOFFS 0 0 0",
+             "  <RENDERER",
+             "  >"]
+
+    # One dialogue/audio track per camera
+    for cam_idx, media_path in enumerate(media_paths):
+        cam_name = f"CAM{cam_idx + 1} – {os.path.basename(media_path)}"
+        lines.append("  <TRACK")
+        lines.append(f"    NAME \"{cam_name}\"")
+        # mute all cameras except the first by default
+        if cam_idx > 0:
+            lines.append("    MUTESOLO 1 0 0")
+        if segments:
+            for seg in segments:
+                if seg.get("action", "keep") == "remove":
+                    continue
+                lines.extend(fmt_item(seg, media_path))
+        else:
+            # place one item covering the whole file if no segments
+            lines.extend(fmt_item({"start": 0, "end": 3600, "label": cam_name}, media_path))
+        lines.append("  >")
+
+    # Shared Music track
+    lines.append("  <TRACK")
+    lines.append("    NAME \"Music\"")
+    fxchain = load_fxchain(fxchain_path)
+    if fxchain:
+        lines.append("    <FXCHAIN")
+        lines.append("      SHOW 0")
+        lines.extend(fxchain)
+        lines.append("    >")
+    lines.extend(fmt_volume_env(contract.get("duckingCues") or contract.get("musicMarkers") or []))
+    lines.append("  >")
+
+    # Shared SFX track
+    lines.append("  <TRACK")
+    lines.append("    NAME \"SFX\"")
+    lines.append("  >")
+
+    lines.extend(markers)
+    lines.append(">")
+    return "\n".join(lines)
+
+
 def build_rpp(contract: Dict[str, Any], media_path: str, fxchain_path: str = "") -> str:
     markers = []
     for idx, m in enumerate((contract.get("markers") or []) + (contract.get("qaMarkers") or []) + (contract.get("musicMarkers") or [])):
@@ -158,11 +219,29 @@ def build_rpp(contract: Dict[str, Any], media_path: str, fxchain_path: str = "")
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--timeline", required=True, help="Ruta a timeline.json o job.json")
+    parser.add_argument("--timeline", required=False, default=None, help="Ruta a timeline.json o job.json")
     parser.add_argument("--rpp-out", required=False, default=None, help="Ruta de salida .rpp (default: alongside json)")
     parser.add_argument("--template-rpp", required=False, default="", help="Ruta a template .rpp para inyectar tracks")
     parser.add_argument("--fxchain", required=False, default="", help="Ruta a archivo .RfxChain para preset de mezcla")
+    parser.add_argument("--multicam-media", required=False, default="", help="Rutas de cámeras separadas por coma para multicam .rpp")
     args = parser.parse_args()
+
+    multicam_paths = [p.strip() for p in args.multicam_media.split(",") if p.strip()] if args.multicam_media else []
+
+    if multicam_paths:
+        # multicam mode: one track per camera
+        contract: Dict[str, Any] = {}
+        if args.timeline and os.path.isfile(args.timeline):
+            contract = load_contract(args.timeline)
+        rpp = build_multicam_rpp(multicam_paths, contract, fxchain_path=args.fxchain)
+        out_path = args.rpp_out or (os.path.splitext(args.timeline)[0] + "_multicam.rpp" if args.timeline else "multicam.rpp")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(rpp)
+        print(f"RPP multicam escrito en {out_path}")
+        return
+
+    if not args.timeline:
+        raise SystemExit("--timeline es requerido salvo que se use --multicam-media")
 
     contract = load_contract(args.timeline)
     media_path = contract.get("media")

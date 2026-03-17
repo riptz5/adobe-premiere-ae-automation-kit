@@ -91,7 +91,51 @@ export async function generateRppForJob(job, config) {
 }
 
 /**
- * Open the generated .rpp in Reaper (fire-and-forget, non-blocking).
+ * Generate a multicam Reaper .rpp from multiple media files.
+ * Creates one dialogue track per camera, plus shared Music/SFX tracks.
+ *
+ * @param {string[]} mediaPaths  - Ordered list of camera/media file paths (2–16)
+ * @param {string} rppOutPath    - Destination .rpp path
+ * @param {object|null} job      - Optional job for shared markers/music
+ * @param {object} ossConfig     - config.integrations.oss
+ * @returns {Promise<{ok:boolean, rppPath?:string, error?:string}>}
+ */
+export async function generateMulticamRpp(mediaPaths, rppOutPath, job, ossConfig = {}) {
+  const python = ossConfig.pythonPath || "python3";
+  const args = [ADAPTER_PATH, "--multicam-media", mediaPaths.join(","), "--rpp-out", rppOutPath];
+
+  // pass optional job timeline for shared markers
+  if (job?.outputs?.timelinePath) {
+    try {
+      await fs.access(job.outputs.timelinePath);
+      args.push("--timeline", job.outputs.timelinePath);
+    } catch { /* timeline not available, proceed without */ }
+  }
+  if (ossConfig.fxchainPath) {
+    args.push("--fxchain", ossConfig.fxchainPath);
+  }
+
+  return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    const proc = spawn(python, args, { timeout: 30000 });
+
+    proc.stdout.on("data", (d) => { stdout += d.toString(); });
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+
+    proc.on("error", (err) => {
+      resolve({ ok: false, error: `spawn error: ${err.message}` });
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve({ ok: true, rppPath: rppOutPath, stdout: stdout.trim() });
+      } else {
+        resolve({ ok: false, error: stderr.trim() || stdout.trim() || `exit code ${code}` });
+      }
+    });
+  });
+}
  *
  * @param {string} rppPath   - path to the .rpp file
  * @param {string} reaperBin - path to REAPER binary

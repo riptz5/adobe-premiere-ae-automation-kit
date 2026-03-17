@@ -39,7 +39,7 @@ function formatTime(sec) {
   return m + ":" + String(s).padStart(2, "0");
 }
 
-const JOB_STUDIO_TABS = ["overview", "result", "chapters", "segments", "markers", "qa", "scenes", "broll", "reframe", "music", "timeline"];
+const JOB_STUDIO_TABS = ["overview", "result", "chapters", "segments", "highlights", "markers", "qa", "scenes", "broll", "reframe", "music", "timeline", "text-edit"];
 
 async function fetchTimeline(jobId) {
   const res = await getJSON("/v1/jobs/" + encodeURIComponent(jobId) + "/timeline");
@@ -161,6 +161,71 @@ function renderJobStudioContent(job, tabId) {
         }
       };
     }
+    return;
+  }
+  if (tabId === "highlights") {
+    const html = [];
+    html.push("<button id='btnFetchHighlights'>Fetch Highlights</button>");
+    html.push("<div id='highlightsResult' style='margin-top:8px;'></div>");
+    el.innerHTML = html.join("");
+    const btn = document.getElementById("btnFetchHighlights");
+    const resultEl = document.getElementById("highlightsResult");
+    if (btn && resultEl) {
+      btn.onclick = async () => {
+        resultEl.textContent = "Loading…";
+        try {
+          const data = await getJSON("/v1/jobs/" + encodeURIComponent(job.id) + "/highlight-segments");
+          if (!data.segments?.length) { resultEl.innerHTML = "<p class='muted'>No highlights in this job.</p>"; return; }
+          let tbl = "<table class='job-studio-table'><thead><tr><th>Start</th><th>End</th><th>Label</th><th>Score</th></tr></thead><tbody>";
+          data.segments.forEach(s => {
+            tbl += "<tr><td>" + formatTime(s.start) + "</td><td>" + formatTime(s.end) + "</td><td>" + escapeHtml(s.label || "—") + "</td><td>" + (s.score != null ? s.score : "—") + "</td></tr>";
+          });
+          tbl += "</tbody></table>";
+          resultEl.innerHTML = tbl + "<pre style='margin-top:8px; font-size:11px;'>" + escapeHtml(JSON.stringify(data, null, 2)) + "</pre>";
+        } catch (err) {
+          resultEl.textContent = "Error: " + err.message;
+        }
+      };
+    }
+    return;
+  }
+  if (tabId === "text-edit") {
+    const segs = job.result?.segments || [];
+    if (!segs.length) { el.innerHTML = "<p class='muted'>Run the pipeline first to get segments.</p>"; return; }
+    const rows = segs.map((s, i) => `<tr>
+      <td>${i}</td>
+      <td>${formatTime(s.start)}</td>
+      <td>${formatTime(s.end)}</td>
+      <td>${escapeHtml(s.label || "")}</td>
+      <td>
+        <select data-idx="${i}" class="textedit-action">
+          <option value="keep"${s.action !== "remove" ? " selected" : ""}>keep</option>
+          <option value="remove"${s.action === "remove" ? " selected" : ""}>remove</option>
+        </select>
+      </td>
+    </tr>`).join("");
+    el.innerHTML = `<div style="overflow:auto; max-height:calc(55vh - 80px);">
+      <table class="job-studio-table"><thead><tr><th>#</th><th>Start</th><th>End</th><th>Label</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnTextEditApply">Apply &amp; Re-export .rpp</button>
+        <span id="textEditStatus" style="color:var(--muted); font-size:12px; line-height:2;"></span>
+      </div>`;
+    document.getElementById("btnTextEditApply").onclick = async () => {
+      const statusEl = document.getElementById("textEditStatus");
+      statusEl.textContent = "Applying…";
+      const decisions = Array.from(el.querySelectorAll(".textedit-action")).map(sel => ({
+        index: parseInt(sel.dataset.idx, 10),
+        action: sel.value
+      }));
+      try {
+        const data = await postJSON("/v1/jobs/" + encodeURIComponent(job.id) + "/text-edit", { decisions });
+        statusEl.textContent = "✓ Applied. RPP: " + (data.rppPath || "generated");
+        job.result = { ...job.result, segments: data.segments };
+      } catch (err) {
+        statusEl.textContent = "Error: " + err.message;
+      }
+    };
     return;
   }
   el.innerHTML = "<p class='muted'>No data for this tab.</p>";
@@ -1014,6 +1079,16 @@ async function ossExport(endpoint, body, successKey) {
     } catch (e) {
       setLog(out, "Error: " + e.message);
     }
+  };
+
+  const multicamBtn = document.getElementById("ossMulticamBtn");
+  if (multicamBtn) multicamBtn.onclick = async () => {
+    const out = document.getElementById("ossOutput");
+    const raw = (document.getElementById("ossMulticamPaths")?.value || "").trim();
+    const jobId = getOssJobId();
+    const media = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    if (media.length < 2) { setLog(out, "Introduce al menos 2 rutas de cámara (separadas por coma o línea)"); return; }
+    await ossExport("/v1/export/reaper/multicam", { media, jobId: jobId || undefined });
   };
 
   const savePathsBtn = document.getElementById("ossPathsSaveBtn");
