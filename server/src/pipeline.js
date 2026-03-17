@@ -78,7 +78,11 @@ export async function runJob(job, config) {
     if (config.features?.useBroll) {
       const t0 = Date.now();
       const textSource = job.result?.summary || job.input.transcript || "";
-      const broll = await suggestBroll(textSource, config);
+      const brollCtx = {
+        summary: job.result?.summary || "",
+        chapters: job.result?.chapters || []
+      };
+      const broll = await suggestBroll(textSource, config, brollCtx);
       if (broll.ok) {
         job.broll = broll.items;
         addJobEvent(job, "broll", "B-roll suggestions ready");

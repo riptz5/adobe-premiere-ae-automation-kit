@@ -22,7 +22,7 @@ import { runAgentChat } from "./agent.js";
 import { spawn } from "child_process";
 import { buildTimelineContract, timelineToOtio } from "./timeline/contract.js";
 import { writeTimelineOutputs } from "./output_otio.js";
-import { generateRppForJob } from "./reaper.js";
+import { generateRppForJob, generateMulticamRpp } from "./reaper.js";
 import { exportKdenliveForJob, exportBlenderVseForJob, exportNatronForJob, generateThumbnailForJob, checkOssTools } from "./oss_export.js";
 
 // Social export presets — aspect ratios + codec settings per platform
@@ -612,7 +612,11 @@ app.post("/v1/scene/detect", async (req, res) => {
 
 app.post("/v1/broll/suggest", async (req, res) => {
   const text = req.body?.text || "";
-  const result = await suggestBroll(text, baseConfig);
+  const ctx = {
+    summary: req.body?.summary || "",
+    chapters: req.body?.chapters || []
+  };
+  const result = await suggestBroll(text, baseConfig, ctx);
   if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
   return res.json({ ok: true, broll: result.items });
 });
@@ -1036,6 +1040,102 @@ app.post("/v1/export/thumbnail", async (req, res) => {
     });
     if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
     return res.json({ ok: true, outputPath: result.outputPath });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── highlight segments (B1) ──────────────────────────────────────────────────
+
+app.get("/v1/jobs/:id/highlight-segments", async (req, res) => {
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    const paddingSec = Number(req.query.padding ?? 0.5);
+    const highlights = job.result?.highlights || [];
+    if (!highlights.length) {
+      return res.json({ ok: true, highlights: [], segments: [] });
+    }
+    const segments = highlights.map((h, i) => ({
+      start: Math.max(0, (h.start ?? 0) - paddingSec),
+      end: Math.max(h.start ?? 0, (h.end ?? h.start ?? 0) + paddingSec),
+      label: h.label || `Highlight ${i + 1}`,
+      score: h.score,
+      action: "keep"
+    }));
+    // merge overlapping segments
+    segments.sort((a, b) => a.start - b.start);
+    const merged = [];
+    for (const seg of segments) {
+      const last = merged[merged.length - 1];
+      if (last && seg.start <= last.end) {
+        last.end = Math.max(last.end, seg.end);
+        continue;
+      }
+      merged.push({ ...seg });
+    }
+    res.json({ ok: true, highlights, segments: merged });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── text-based editing (B2) ──────────────────────────────────────────────────
+
+app.post("/v1/jobs/:id/text-edit", async (req, res) => {
+  const DecisionSchema = z.array(z.object({
+    label: z.string().optional(),
+    index: z.number().int().optional(),
+    action: z.enum(["keep", "remove"])
+  }));
+  try {
+    const job = await readJob(req.params.id, baseConfig);
+    if (!job.result?.segments?.length) {
+      return res.status(422).json({ ok: false, error: "Job has no segments to edit" });
+    }
+    const parsed = DecisionSchema.safeParse(req.body?.decisions);
+    if (!parsed.success) {
+      return res.status(400).json({ ok: false, error: "Invalid decisions: " + parsed.error.message });
+    }
+    const decisions = parsed.data;
+    const updated = job.result.segments.map((seg, idx) => {
+      const byLabel = decisions.find(d => d.label && seg.label && d.label.toLowerCase() === seg.label.toLowerCase());
+      const byIndex = decisions.find(d => typeof d.index === "number" && d.index === idx);
+      const match = byLabel || byIndex;
+      return match ? { ...seg, action: match.action } : seg;
+    });
+    job.result = { ...job.result, segments: updated };
+    job.updatedAt = new Date().toISOString();
+    await writeJob(job, baseConfig);
+    // re-generate timeline + rpp with updated segments
+    await writeTimelineOutputs(job, baseConfig);
+    const rppResult = await generateRppForJob(job, baseConfig);
+    res.json({ ok: true, segments: updated, rppPath: rppResult.ok ? rppResult.rppPath : null });
+  } catch (err) {
+    if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── multicam Reaper export ───────────────────────────────────────────────────
+
+app.post("/v1/export/reaper/multicam", async (req, res) => {
+  const MediaArraySchema = z.array(z.string().min(1)).min(2).max(16);
+  const parsed = MediaArraySchema.safeParse(req.body?.media);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: "media must be an array of 2-16 file paths" });
+  }
+  const jobId = (req.body?.jobId || "").trim();
+  try {
+    const job = jobId ? await readJob(jobId, baseConfig) : null;
+    const outDir = baseConfig.paths?.resultsDir || "server/data/results";
+    const outName = jobId ? `job_${jobId.slice(0, 8)}_multicam.rpp` : `multicam_${Date.now()}.rpp`;
+    const rppOutPath = path.join(outDir, outName);
+    await fs.mkdir(outDir, { recursive: true });
+    const result = await generateMulticamRpp(parsed.data, rppOutPath, job, baseConfig.integrations?.oss || {});
+    if (!result.ok) return res.status(422).json({ ok: false, error: result.error });
+    res.json({ ok: true, rppPath: result.rppPath });
   } catch (err) {
     if (err.code === "ENOENT") return res.status(404).json({ ok: false, error: "Job not found" });
     res.status(500).json({ ok: false, error: err.message });

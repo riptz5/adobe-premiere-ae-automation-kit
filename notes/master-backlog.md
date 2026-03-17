@@ -15,15 +15,23 @@
 | qa | QA | QA en dashboard con export CSV; panel dedicado. | ✅ Completado |
 | oss-product | OSS | setup.sh, run_all.sh mejorado, ejemplos shorts/ads/longform. | ✅ Completado |
 | multiagent-tooling | Proceso | run_codex_trio/nowiswhen en README; presets; notes/multi-agent/. | ✅ Completado |
+| highlight-reels | OSS/Reaper | `GET /v1/jobs/:id/highlight-segments` + tab Highlights en Job Studio. | ✅ Completado v1.2 |
+| text-based-edit | OSS/Reaper | `POST /v1/jobs/:id/text-edit` keep/remove decisions + tab Text-Edit + re-export .rpp. | ✅ Completado v1.2 |
+| broll-contextual | B-roll | `suggestBroll` usa summary+chapters como contexto enriquecido. | ✅ Completado v1.2 |
+| trailer-profile | Perfiles | Perfil `trailer` en `config/profiles/trailer.json`. | ✅ Completado v1.2 |
+| multicam-reaper | OSS/Reaper | `POST /v1/export/reaper/multicam` + `--multicam-media` en adaptador Python. | ✅ Completado v1.2 |
 
 ---
 
-### Futuras versiones (fuera de scope v1.0.0-local-first)
+### Futuras versiones (fuera de scope v1.2.0)
 
-- **Highlight reels** (B1): endpoint `/v1/jobs/:id/highlight-segments` y doc en `notes/highlight-reels.md`.
-- **Text-based editing** (B2): endpoint `/v1/jobs/:id/text-edit` para instrucciones keep/remove por label.
-- **B-roll contextual** (B3): mejorar `/v1/broll/suggest` con contexto job (summary, chapters).
-- **Perfil Trailer/Teaser** (B4): perfil `trailer`/`teaser` en config.
-- **Validación JSON** en editor de config (lint + esquema AutokitConfig) y diff antes/después al guardar.
-- **Drag-and-drop** en vista Kanban para cambiar estado de jobs (requiere PATCH/API de estado).
+- **TTS** (texto a voz local o API).
+- **Remove background IA** (roto/alpha).
+- **Upscale video** (Real-ESRGAN).
+- **Estabilización parametrizable** desde servidor.
+- **Galería de plantillas** one-click.
+- **Validación post-export** (QA sobre archivo exportado).
+- **Nomenclatura y versionado estándar**.
+- **Drag-and-drop** en vista Kanban (PATCH/API de estado).
+- **Validación JSON** en editor de config (lint + esquema + diff).
 - **Frame.io / Adobe Stock** integraciones completas (actualmente placeholders en config).

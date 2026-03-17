@@ -1,0 +1,22 @@
+{
+  "analyze": {
+    "chapterTargetSec": 20,
+    "highlightMax": 20,
+    "removeFillers": true
+  },
+  "features": {
+    "useScenes": true,
+    "useBroll": true,
+    "useReframe": true
+  },
+  "reframe": {
+    "enabled": true,
+    "targets": ["9:16", "1:1"]
+  },
+  "audio": {
+    "normalize": true,
+    "targetI": -14,
+    "truePeak": -1.0,
+    "lra": 9
+  }
+}

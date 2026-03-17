@@ -19,18 +19,28 @@
 - QA: silencio, negro, loudness, spectral → `POST /v1/qa/analyze`
 - Escenas: FFmpeg scene detect → `POST /v1/scene/detect`
 - Música: beats, sections, drops → `POST /v1/music/analyze`
-- B-roll: sugerencias por texto → `POST /v1/broll/suggest`
+- B-roll: sugerencias contextual (summary + chapters) → `POST /v1/broll/suggest`
 - Reframe: 9:16 y otros ratios → `POST /v1/reframe`
 - Normalización audio: FFmpeg loudnorm → `POST /v1/audio/normalize`
 - Extracción audio: WAV/MP3/AAC/FLAC → `POST /v1/audio/extract`
 
 ### OSS Export (v1.1)
 - **Reaper** `.rpp` auto-generado en cada pipeline + `POST /v1/export/reaper` + descarga `/v1/jobs/:id/rpp`
+- **Reaper Multicam** `.rpp` con una pista por cámara → `POST /v1/export/reaper/multicam`
 - **Kdenlive** `.mlt` → `POST /v1/export/kdenlive` + descarga `/v1/jobs/:id/mlt`
 - **Blender VSE** → `POST /v1/export/blender`
 - **Natron** batch VFX → `POST /v1/export/natron`
 - **GIMP/Pillow** thumbnail → `POST /v1/export/thumbnail`
 - Health check herramientas → `GET /v1/oss/health`
+
+### Highlight reels (v1.2 — B1)
+- Endpoint → `GET /v1/jobs/:id/highlight-segments` (con padding ajustable `?padding=0.5`)
+- Dashboard: tab "Highlights" en Job Studio
+
+### Text-based editing (v1.2 — B2)
+- Endpoint → `POST /v1/jobs/:id/text-edit` (body: `{ decisions: [{ label, action }] }`)
+- Actualiza segments, regenera timeline + .rpp automáticamente
+- Dashboard: tab "Text-Edit" en Job Studio con selector keep/remove por segmento
 
 ### Social Export (v1.1)
 - Presets: YouTube 1080p, YouTube Shorts 9:16, Instagram Reels, Instagram Feed 1:1, TikTok, Twitter/X, LinkedIn
@@ -43,13 +53,13 @@
 
 ### Dashboard (vanilla JS)
 - Analizar transcript, crear job, lista + **Kanban** de jobs
-- **Job Studio**: result, markers, segments, chapters, QA, scenes, broll, reframe, music, timeline
+- **Job Studio**: result, markers, segments, **highlights**, chapters, QA, scenes, broll, reframe, music, timeline, **text-edit**
 - Paneles **QA** (Download CSV), **Music Mode**, **Config** (7 tabs + editor JSON)
-- **OSS Export** (6), **Social Export** (7), **Bilingual Captions** (8)
+- **OSS Export** (6+multicam), **Social Export** (7), **Bilingual Captions** (8)
 - Toggles: quitar fillers, denoise, extracción audio
 
 ### Config / perfiles
-- Perfiles: shorts, ads, longform (en `config/profiles/`)
+- Perfiles: shorts, ads, longform, docu, **trailer** (nuevo en v1.2)
 - Watch folders, health check extendido, métricas, retry, logging
 - Rutas OSS: `reaperPath`, `blenderPath`, `gimpPath`, `ffmpegPath`, `natronPath`, `kdenliveCliPath`
 
@@ -70,14 +80,15 @@
 | GIMP | instalar: `bash scripts/install_oss.sh` |
 | Natron | instalar: `bash scripts/install_oss.sh` |
 
-## Qué queda (backlog v1.2+)
+## Qué queda (backlog v1.3+)
 
-Ver `notes/master-backlog.md` y `docs/capcut-parity.md`:
+Ver `notes/master-backlog.md`:
 - TTS (texto a voz, local o API)
 - Remove background IA (roto/alpha)
 - Upscale video (Real-ESRGAN)
 - Estabilización parametrizable desde servidor
 - Galería de plantillas one-click
-- Multicam script (Reaper/Kdenlive)
 - Validación post-export (QA sobre archivo exportado)
 - Nomenclatura y versionado estándar
+- Drag-and-drop en vista Kanban
+- Validación JSON en editor de config

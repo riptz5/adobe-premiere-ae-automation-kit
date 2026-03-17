@@ -46,15 +46,18 @@ npm run dev
 - Jobs: `POST /v1/jobs`, `GET /v1/jobs`, `GET /v1/jobs/:id`, `POST /v1/jobs/:id/run`
 - Job outputs: `GET /v1/jobs/:id/result`, `GET /v1/jobs/:id/markers`
 - More outputs: `GET /v1/jobs/:id/segments`, `GET /v1/jobs/:id/chapters`, `GET /v1/jobs/:id/summary`
+- Highlights: `GET /v1/jobs/:id/highlight-segments` (highlights como segmentos listos para exportar)
+- Text-based editing: `POST /v1/jobs/:id/text-edit` (keep/remove decisions → re-genera timeline y .rpp)
 - QA: `GET /v1/jobs/:id/qa`, `POST /v1/qa/analyze`
 - QA markers (silence/black): `GET /v1/jobs/:id/qa-markers`
 - Audio normalize: `POST /v1/audio/normalize`
 - Config local: `GET /v1/config/local`, `POST /v1/config/local`
 - Scene detect: `GET /v1/jobs/:id/scenes`, `POST /v1/scene/detect`
-- B-roll suggest: `GET /v1/jobs/:id/broll`, `POST /v1/broll/suggest`
+- B-roll suggest (contextual): `GET /v1/jobs/:id/broll`, `POST /v1/broll/suggest`
 - Reframe: `GET /v1/jobs/:id/reframe`, `POST /v1/reframe`
 - Music mode (FFmpeg, sin transcript): `POST /v1/music/analyze`
 - Config: `GET /v1/config`, `GET /v1/config/profiles`
+- OSS export: `POST /v1/export/reaper`, `POST /v1/export/reaper/multicam`, `POST /v1/export/kdenlive`, `POST /v1/export/blender`, `POST /v1/export/natron`, `POST /v1/export/thumbnail`
 - Probe media: `POST /v1/ingest/probe` (requiere `ffprobe`)
 - Jobs desde media: `POST /v1/jobs` con `mediaPath` (requiere STT local)
 
