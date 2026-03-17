@@ -11,12 +11,19 @@
 
   function parseCSV(csv) {
     // Minimal CSV parser (no quoted commas)
+    function parseCell(cell) {
+      var value = cell.trim();
+      if (value.length >= 2 && value.charAt(0) === "\"" && value.charAt(value.length - 1) === "\"") {
+        value = value.substring(1, value.length - 1).replace(/""/g, "\"");
+      }
+      return value;
+    }
     var lines = csv.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
     if (lines.length < 2) throw new Error("CSV vacío.");
-    var headers = lines[0].split(",").map(function(h){ return h.trim(); });
+    var headers = lines[0].split(",").map(parseCell);
     var rows = [];
     for (var i=1; i<lines.length; i++) {
-      var cols = lines[i].split(",").map(function(c){ return c.trim(); });
+      var cols = lines[i].split(",").map(parseCell);
       var row = {};
       for (var j=0; j<headers.length; j++) row[headers[j]] = cols[j] || "";
       rows.push(row);

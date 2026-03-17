@@ -1,4 +1,6 @@
 profile,compName,title,subtitle,assetPath
-shorts,Render_1,Intro Short,Tip rápido para edición,
-ads,Render_2,Nueva temporada,Más sabor mismo precio,
-shorts,Render_3,Capítulo 3,Resumen del segmento,/path/to/optional/footage.mp4
+shorts,"Reel_01","Summer Highlights","Best moments of the season","/path/to/summer_clips.mp4"
+ads,"Ad_Product_Launch","New Product","Available now - Limited edition","/path/to/product_hero.mp4"
+longform,"Episode_01","Documentary Intro","Chapter 1: The Beginning","/path/to/docu_footage.mp4"
+shorts,"Reel_02","Behind the Scenes","Making of the campaign","/path/to/bts_clips.mp4"
+docu,"Interview_01","Expert Interview","Dr. Smith on Innovation","/path/to/interview.mp4"
