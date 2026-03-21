@@ -1,0 +1,116 @@
+name: Dependabot Auto Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  check_suite:
+    types: [completed]
+
+jobs:
+  dependabot-auto-merge:
+    name: Auto Merge Dependabot PRs
+    runs-on: ubuntu-latest
+    # Only run for Dependabot PRs
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - name: Fetch Pull Request Details
+        id: pr-details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequestNumber = context.issue.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequestNumber
+            });
+            
+            core.setOutput('pr_title', pr.title);
+            core.setOutput('pr_mergeable', pr.mergeable);
+            core.setOutput('pr_state', pr.state);
+
+      - name: Enable Pull Request Automerge
+        if: steps.pr-details.outputs.pr_mergeable == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequestNumber = context.issue.number;
+            
+            try {
+              // Enable auto-merge for this PR
+              await github.rest.pulls.enableAutomerge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullRequestNumber
+              });
+              console.log(`✅ Enabled auto-merge for PR #${pullRequestNumber}`);
+            } catch (error) {
+              // If enable auto-merge fails, try direct merge
+              console.log(`Auto-merge enable failed, trying direct merge: ${error.message}`);
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pullRequestNumber,
+                  merge_method: 'squash'
+                });
+                console.log(`✅ Merged PR #${pullRequestNumber}`);
+              } catch (mergeError) {
+                console.log(`Direct merge also failed: ${mergeError.message}`);
+                // Don't fail the workflow - the PR may just not be ready yet
+              }
+            }
+
+  development-branch-auto-merge:
+    name: Auto Merge Development Branches
+    runs-on: ubuntu-latest
+    # Run for non-Dependabot PRs that have specific labels
+    if: |
+      github.actor != 'dependabot[bot]' && 
+      github.event_name == 'pull_request'
+    steps:
+      - name: Check for auto-merge label
+        id: check-label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequestNumber = context.issue.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequestNumber
+            });
+            
+            const hasAutoMergeLabel = pr.labels.some(label => 
+              label.name === 'auto-merge' || label.name === 'automerge'
+            );
+            
+            // Also check if branch is a development branch (not main/master)
+            const isDevBranch = !['main', 'master'].includes(pr.head.ref);
+            
+            core.setOutput('has_label', hasAutoMergeLabel);
+            core.setOutput('is_dev_branch', isDevBranch);
+            core.setOutput('pr_mergeable', pr.mergeable);
+            console.log(`Has auto-merge label: ${hasAutoMergeLabel}`);
+            console.log(`Is development branch: ${isDevBranch}`);
+            console.log(`Is mergeable: ${pr.mergeable}`);
+
+      - name: Enable Automerge for Labeled PRs
+        if: |
+          steps.check-label.outputs.has_label == 'true' && 
+          steps.check-label.outputs.pr_mergeable == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequestNumber = context.issue.number;
+            
+            try {
+              await github.rest.pulls.enableAutomerge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullRequestNumber
+              });
+              console.log(`✅ Enabled auto-merge for PR #${pullRequestNumber}`);
+            } catch (error) {
+              console.log(`Auto-merge error: ${error.message}`);
+            }
